@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>claudeseek</title>
+<style>
+  :root{
+    --bg:#1615120; --bg:#1b1a17; --panel:#23211d; --panel2:#2a2823; --line:#3a372f;
+    --text:#ece9e2; --muted:#9b968a; --claude:#d97757; --seek:#4d6bfe;
+    --green:#5eb67d; --red:#e05a5a; --yellow:#deb860; --code:#141311;
+    --radius:14px; --mono:ui-monospace,'Cascadia Code',Consolas,monospace;
+  }
+  [data-theme="light"]{
+    --bg:#f0eee6; --panel:#faf9f5; --panel2:#efede5; --line:#ddd9cd;
+    --text:#141413; --muted:#73705f; --code:#f4f2ec;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;font:14px/1.6 -apple-system,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;overflow:hidden}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  select,textarea,input{font:inherit;color:inherit}
+
+  /* ---------- sidebar ---------- */
+  #side{width:248px;min-width:248px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
+  #brand{padding:18px 16px 10px;font-size:19px;font-weight:700;letter-spacing:.2px}
+  #brand .cl{color:var(--claude)} #brand .sk{color:var(--seek)}
+  #brand small{display:block;color:var(--muted);font-weight:400;font-size:11px;margin-top:2px}
+  #newChat{margin:8px 12px;padding:9px;border-radius:10px;text-align:center;font-weight:600;
+    background:linear-gradient(100deg,var(--claude),var(--seek));color:#fff;transition:filter .15s}
+  #newChat:hover{filter:brightness(1.1)}
+  #sessions{flex:1;overflow-y:auto;padding:6px 8px}
+  .sess{padding:8px 10px;border-radius:9px;cursor:pointer;margin-bottom:2px}
+  .sess:hover{background:var(--panel2)} .sess.active{background:var(--panel2);outline:1px solid var(--line)}
+  .sess .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+  .sess .m{color:var(--muted);font-size:11px}
+  #sideFoot{padding:10px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:11.5px;line-height:1.9}
+  .pill{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--red)}
+  .pill.on{background:var(--green)}
+
+  /* ---------- main ---------- */
+  #main{flex:1;display:flex;flex-direction:column;min-width:0}
+  #top{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+  #top select{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 8px;outline:none}
+  #ctxbar{flex:1;height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;min-width:60px;max-width:220px}
+  #ctxfill{height:100%;width:0%;background:linear-gradient(90deg,var(--seek),var(--claude));transition:width .4s}
+  .iconbtn{padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);font-size:12.5px;color:var(--muted)}
+  .iconbtn:hover{color:var(--text)}
+
+  #chat{flex:1;overflow-y:auto;padding:24px 0 12px;scroll-behavior:smooth}
+  .row{max-width:880px;margin:0 auto 18px;padding:0 24px}
+  .who{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .who.u{color:var(--claude)} .who.a{background:linear-gradient(90deg,var(--claude),var(--seek));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
+  .bubble{white-space:pre-wrap;word-wrap:break-word}
+  .bubble.user{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px}
+  .md p{margin:.5em 0} .md h1,.md h2,.md h3{margin:.8em 0 .35em;line-height:1.3} .md ul,.md ol{margin:.4em 0;padding-left:1.4em}
+  .md code{font-family:var(--mono);font-size:12.5px;background:var(--code);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+  .md pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;position:relative}
+  .md pre code{background:none;border:none;padding:0;display:block}
+  .md pre .lang{position:absolute;top:6px;right:40px;font-size:10.5px;color:var(--muted)}
+  .md pre .copy{position:absolute;top:4px;right:6px;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:5px}
+  .md pre .copy:hover{color:var(--text)}
+  .md a{color:var(--seek)} .md blockquote{border-left:3px solid var(--claude);margin:.5em 0;padding-left:12px;color:var(--muted)}
+  .md table{border-collapse:collapse;margin:.6em 0} .md th,.md td{border:1px solid var(--line);padding:4px 10px;font-size:13px}
+
+  details.think{margin:6px 0;border:1px dashed var(--line);border-radius:10px;padding:6px 12px;color:var(--muted)}
+  details.think summary{cursor:pointer;font-size:12px;user-select:none}
+  details.think .body{font-size:12.5px;white-space:pre-wrap;max-height:300px;overflow-y:auto;margin-top:6px}
+
+  .tool{margin:8px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+  .tool>.head{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-family:var(--mono);font-size:12.5px}
+  .tool .st{width:8px;height:8px;border-radius:50%;background:var(--yellow);flex:none}
+  .tool.ok .st{background:var(--green)} .tool.fail .st{background:var(--red)} .tool.denied .st{background:var(--yellow)}
+  .tool .nm{font-weight:700;color:var(--seek)} .tool .pv{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+  .tool .ms{color:var(--muted);font-size:11px;flex:none}
+  .tool>.body{display:none;border-top:1px solid var(--line);padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;max-height:320px;overflow-y:auto;background:var(--code)}
+  .tool.openb>.body{display:block}
+
+  .approval{margin:10px 0;border:1px solid var(--yellow);border-radius:12px;padding:12px 14px;background:color-mix(in srgb,var(--yellow) 8%,var(--panel))}
+  .approval .q{font-weight:600;margin-bottom:4px}
+  .approval .cmd{font-family:var(--mono);font-size:12.5px;background:var(--code);border-radius:7px;padding:8px 10px;margin:8px 0;white-space:pre-wrap;max-height:160px;overflow-y:auto}
+  .approval .btns{display:flex;gap:8px}
+  .approval button{padding:6px 16px;border-radius:8px;font-weight:600;font-size:13px}
+  .approval .allow{background:var(--green);color:#10150f} .approval .always{background:var(--panel2);border:1px solid var(--green);color:var(--green)}
+  .approval .deny{background:var(--panel2);border:1px solid var(--red);color:var(--red)}
+  .approval.resolved{opacity:.55} .approval.resolved .btns{display:none}
+
+  #todos{position:fixed;right:18px;top:64px;width:260px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:12.5px;display:none;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  #todos h4{margin:0 0 6px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
+  #todos .td{margin:3px 0;display:flex;gap:7px;align-items:baseline}
+  #todos .td .b{font-family:var(--mono)} .td.done{color:var(--muted);text-decoration:line-through}
+  .td.doing .b{color:var(--yellow)} .td.done .b{color:var(--green)}
+
+  #composerWrap{border-top:1px solid var(--line);background:var(--panel);padding:12px 16px 14px}
+  #composer{max-width:880px;margin:0 auto;display:flex;gap:10px;align-items:flex-end}
+  #input{flex:1;resize:none;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:11px 14px;outline:none;max-height:200px;min-height:44px}
+  #input:focus{border-color:var(--seek)}
+  #send{padding:10px 20px;border-radius:11px;font-weight:700;background:linear-gradient(100deg,var(--claude),var(--seek));color:#fff}
+  #send.stop{background:var(--red)}
+  #send:disabled{opacity:.5;cursor:default}
+  #foot{max-width:880px;margin:6px auto 0;display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;padding:0 4px}
+  .note{color:var(--muted);font-size:12px;font-style:italic;margin:4px 0}
+  #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--red);color:#fff;padding:8px 18px;border-radius:10px;display:none;z-index:9}
+  #empty{max-width:560px;margin:14vh auto 0;text-align:center;color:var(--muted)}
+  #empty .logo{font-size:34px;font-weight:800}
+  #empty .hints{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+  #empty .hint{border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:10px;cursor:pointer;font-size:12.5px}
+  #empty .hint:hover{border-color:var(--seek)}
+  ::-webkit-scrollbar{width:9px;height:9px} ::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+</style>
+</head>
+<body>
+<aside id="side">
+  <div id="brand"><span class="cl">claude</span><span class="sk">seek</span><small id="ver">local agent workbench</small></div>
+  <button id="newChat">+ New chat</button>
+  <div id="sessions"></div>
+  <div id="sideFoot">
+    <div><span class="pill" id="memPill"></span>agentmemory</div>
+    <div><span class="pill on"></span><span id="cwdLabel">workspace</span></div>
+    <div id="skillsLabel"></div>
+  </div>
+</aside>
+
+<main id="main">
+  <header id="top">
+    <select id="modelSel" title="model"></select>
+    <select id="modeSel" title="permission mode"></select>
+    <div id="ctxbar" title="context usage"><div id="ctxfill"></div></div>
+    <button class="iconbtn" id="undoBtn" title="revert last turn's file edits">↩ undo</button>
+    <button class="iconbtn" id="compactBtn" title="compact context">▣ compact</button>
+    <button class="iconbtn" id="todosBtn">☰ todos</button>
+    <button class="iconbtn" id="themeBtn">◐</button>
+  </header>
+
+  <section id="chat">
+    <div id="empty">
+      <div class="logo"><span style="color:var(--claude)">claude</span><span style="color:var(--seek)">seek</span></div>
+      <p>Claude-grade agent architecture · DeepSeek V4 engine.<br>It reads, searches, edits and runs code in <b id="emptyCwd"></b> — with your approval.</p>
+      <div class="hints">
+        <div class="hint">总结一下这个项目的结构</div>
+        <div class="hint">find TODO comments and list them</div>
+        <div class="hint">写一个 hello.py 并运行它</div>
+      </div>
+    </div>
+  </section>
+
+  <div id="todos"><h4>Agent todos</h4><div id="todoList"></div></div>
+
+  <div id="composerWrap">
+    <div id="composer">
+      <textarea id="input" rows="1" placeholder="Ask claudeseek… (Enter to send, Shift+Enter for newline)"></textarea>
+      <button id="send">Send</button>
+    </div>
+    <div id="foot"><span id="costChip">$0.0000 · 0 tok</span><span id="statusChip"></span></div>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+const token = new URLSearchParams(location.search).get("token") || "";
+const $ = (id) => document.getElementById(id);
+const chat = $("chat");
+let busy = false, currentAbort = null;
+
+/* ---------------- API ---------------- */
+async function api(path, opts = {}) {
+  const res = await fetch(path + (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(token), opts);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || ("HTTP " + res.status));
+  return res.json();
+}
+
+/* ---------------- markdown (small, safe) ---------------- */
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function mdRender(src){
+  src = String(src ?? "");
+  const blocks = [];
+  src = src.replace(/```([\w+-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    blocks.push({lang, code});
+    return "\x00B" + (blocks.length - 1) + "\x00";
+  });
+  let html = esc(src);
+  html = html
+    .replace(/^###### (.*)$/gm,"<h6>$1</h6>").replace(/^##### (.*)$/gm,"<h5>$1</h5>")
+    .replace(/^#### (.*)$/gm,"<h4>$1</h4>").replace(/^### (.*)$/gm,"<h3>$1</h3>")
+    .replace(/^## (.*)$/gm,"<h2>$1</h2>").replace(/^# (.*)$/gm,"<h1>$1</h1>")
+    .replace(/^&gt; (.*)$/gm,"<blockquote>$1</blockquote>")
+    .replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>")
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,"$1<i>$2</i>")
+    .replace(/`([^`\n]+)`/g,"<code>$1</code>")
+    .replace(/\[([^\]\n]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/^(?:-|\*) (.*)$/gm,"<li>$1</li>")
+    .replace(/^\d+\. (.*)$/gm,"<li>$1</li>");
+  html = html.replace(/(?:<li>.*<\/li>\n?)+/g, (m)=>"<ul>"+m+"</ul>");
+  html = html.split(/\n{2,}/).map(p=>/^\s*<(h\d|ul|blockquote|pre)/.test(p)?p:"<p>"+p.replace(/\n/g,"<br>")+"</p>").join("\n");
+  html = html.replace(/\x00B(\d+)\x00/g,(_,i)=>{
+    const b = blocks[+i];
+    return `<pre><span class="lang">${esc(b.lang)}</span><button class="copy" onclick="copyCode(this)">copy</button><code>${esc(b.code)}</code></pre>`;
+  });
+  return html;
+}
+function copyCode(btn){
+  navigator.clipboard.writeText(btn.parentElement.querySelector("code").innerText);
+  btn.textContent="✓"; setTimeout(()=>btn.textContent="copy",1200);
+}
+
+/* ---------------- rendering ---------------- */
+function row(whoCls, whoLabel){
+  $("empty")?.remove();
+  const r = document.createElement("div"); r.className="row";
+  r.innerHTML = `<div class="who ${whoCls}">${whoLabel}</div>`;
+  chat.appendChild(r); return r;
+}
+function addUser(text){
+  const r = row("u","you");
+  const b = document.createElement("div"); b.className="bubble user"; b.textContent=text;
+  r.appendChild(b); scrollDown();
+}
+function newAssistantRow(){
+  const r = row("a","claudeseek");
+  r._md = ""; r._textEl = null; r._thinkEl = null;
+  return r;
+}
+function assistantText(r, delta){
+  if(!r._textEl){ r._textEl = document.createElement("div"); r._textEl.className="md bubble"; r.appendChild(r._textEl); }
+  r._md += delta;
+  r._textEl.innerHTML = mdRender(r._md);
+  scrollDown();
+}
+function assistantThink(r, delta){
+  if(!r._thinkEl){
+    const d = document.createElement("details"); d.className="think";
+    d.innerHTML = `<summary>✻ thinking…</summary><div class="body"></div>`;
+    r.appendChild(d); r._thinkEl = d.querySelector(".body"); r._thinkSummary = d.querySelector("summary");
+  }
+  r._thinkEl.textContent += delta;
+  scrollDown();
+}
+function toolCard(r, ev){
+  const t = document.createElement("div"); t.className="tool"; t.dataset.id=ev.id;
+  t.innerHTML = `<div class="head"><span class="st"></span><span class="nm">${esc(ev.name)}</span>
+    <span class="pv">${esc(ev.preview||"")}</span><span class="ms">…</span></div>
+    <div class="body">${esc(JSON.stringify(ev.input,null,2))}</div>`;
+  t.querySelector(".head").onclick = ()=>t.classList.toggle("openb");
+  r.appendChild(t); scrollDown(); return t;
+}
+function finishToolCard(r, ev){
+  const t = r.querySelector(`.tool[data-id="${ev.id}"]`) || toolCard(r, ev);
+  t.classList.add(ev.denied ? "denied" : ev.ok ? "ok" : "fail");
+  t.querySelector(".ms").textContent = (ev.ms||0)+"ms";
+  const body = t.querySelector(".body");
+  body.textContent = JSON.stringify(ev.input||{},null,2) + "\n\n── output ──\n" + (ev.output||"");
+  // reset assistant text element: text after tools goes to a fresh block
+  r._textEl = null; r._md = "";
+  scrollDown();
+}
+function approvalCard(r, ev){
+  const a = document.createElement("div"); a.className="approval"; a.dataset.id = ev.id;
+  a.innerHTML = `<div class="q">⚠ approval needed — <b>${esc(ev.tool)}</b> <span style="color:var(--muted)">(${esc(ev.kind)})</span></div>
+    <div class="cmd">${esc(ev.preview||JSON.stringify(ev.input))}</div>
+    <div class="btns">
+      <button class="allow">Allow</button>
+      <button class="always">Always allow</button>
+      <button class="deny">Deny</button>
+    </div>`;
+  for(const [cls,decision] of [["allow","allow"],["always","always"],["deny","deny"]]){
+    a.querySelector("."+cls).onclick = async ()=>{
+      try{ await api("/api/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:ev.id,decision})}); }
+      catch(e){ toast(e.message); }
+      a.classList.add("resolved");
+      a.querySelector(".q").innerHTML += ` → <b>${decision}</b>`;
+    };
+  }
+  r.appendChild(a); scrollDown();
+}
+function note(r, text){
+  const n = document.createElement("div"); n.className="note"; n.textContent=text;
+  r.appendChild(n); scrollDown();
+}
+function scrollDown(){ chat.scrollTop = chat.scrollHeight; }
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.style.display="block"; setTimeout(()=>t.style.display="none",3500); }
+
+/* ---------------- chat flow ---------------- */
+async function send(){
+  const input = $("input");
+  const text = input.value.trim();
+  if(!text || busy) return;
+  input.value=""; autoGrow();
+  addUser(text);
+  busy = true; setBusy(true);
+  const r = newAssistantRow();
+  try{
+    const res = await fetch("/api/chat?token="+encodeURIComponent(token),{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({message:text}),
+    });
+    if(!res.ok) throw new Error((await res.json().catch(()=>({}))).error || "HTTP "+res.status);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf="";
+    while(true){
+      const {done,value} = await reader.read();
+      if(done) break;
+      buf += dec.decode(value,{stream:true});
+      const lines = buf.split("\n"); buf = lines.pop()||"";
+      for(const line of lines){
+        if(!line.trim()) continue;
+        let ev; try{ ev = JSON.parse(line); }catch{ continue; }
+        handleEvent(r, ev);
+      }
+    }
+  }catch(err){
+    if(err.name!=="AbortError") { note(r,"✗ "+err.message); toast(err.message); }
+  }finally{
+    busy=false; setBusy(false);
+    if(r._thinkSummary) r._thinkSummary.textContent = "✻ thought process";
+    refreshState(); refreshSessions();
+  }
+}
+function handleEvent(r, ev){
+  switch(ev.type){
+    case "route": note(r, `⌁ router → ${ev.model} (${ev.reason})`); break;
+    case "recall-attached": note(r, "⌁ agentmemory recall attached"); break;
+    case "reasoning": assistantThink(r, ev.text); break;
+    case "text": assistantText(r, ev.text); break;
+    case "tool-start": toolCard(r, ev); break;
+    case "tool-end": finishToolCard(r, ev); break;
+    case "approval-request": approvalCard(r, ev); break;
+    case "compacted": note(r, "⌁ context compacted"); break;
+    case "todos": renderTodos(ev.todos); break;
+    case "subagent-start": note(r, "⌁ sub-agent: "+ev.description); break;
+    case "usage": $("costChip").textContent = `$${ev.costUsd.toFixed(4)} · ${ev.model}`; break;
+    case "error": if(!ev.aborted) note(r, "✗ "+ev.message); else note(r,"■ aborted"); break;
+  }
+}
+function setBusy(b){
+  const s = $("send");
+  s.textContent = b ? "Stop" : "Send";
+  s.classList.toggle("stop", b);
+}
+$("send").onclick = ()=>{ if(busy){ api("/api/abort",{method:"POST"}).catch(()=>{}); } else send(); };
+$("input").addEventListener("keydown",(e)=>{
+  if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); }
+});
+function autoGrow(){ const i=$("input"); i.style.height="auto"; i.style.height=Math.min(200,i.scrollHeight)+"px"; }
+$("input").addEventListener("input", autoGrow);
+
+/* ---------------- todos ---------------- */
+function renderTodos(todos){
+  const el = $("todoList");
+  el.innerHTML = "";
+  if(!todos?.length){ el.innerHTML = '<div style="color:var(--muted)">none</div>'; return; }
+  for(const t of todos){
+    const d = document.createElement("div");
+    d.className = "td " + (t.status==="completed"?"done":t.status==="in_progress"?"doing":"");
+    d.innerHTML = `<span class="b">${t.status==="completed"?"[x]":t.status==="in_progress"?"[~]":"[ ]"}</span><span>${esc(t.content)}</span>`;
+    el.appendChild(d);
+  }
+  $("todos").style.display="block";
+}
+$("todosBtn").onclick = ()=>{ const t=$("todos"); t.style.display = t.style.display==="block"?"none":"block"; };
+
+/* ---------------- state & sessions ---------------- */
+async function refreshState(){
+  try{
+    const s = await api("/api/state");
+    $("ver").textContent = "v"+s.version+" · local agent workbench";
+    $("cwdLabel").textContent = s.cwd; $("emptyCwd") && ($("emptyCwd").textContent = s.cwd);
+    $("memPill").classList.toggle("on", !!s.memory?.enabled);
+    $("skillsLabel").textContent = (s.skills?.length||0)+" skills · "+(s.mcp?.filter(m=>m.status==="ready").length||0)+" mcp";
+    $("costChip").textContent = s.costFooter;
+    $("statusChip").textContent = `${s.session.id} · mode ${s.mode}`;
+    const pct = Math.min(100, Math.round(s.context.tokens / s.context.window * 100));
+    $("ctxfill").style.width = pct+"%";
+    fillSelect($("modelSel"), ["auto","pro","flash","reasoner","chat"], s.model);
+    fillSelect($("modeSel"), s.modes, s.mode);
+    renderTodos(s.todos);
+  }catch(e){ toast("state: "+e.message); }
+}
+function fillSelect(sel, options, current){
+  if(sel.dataset.filled !== options.join(",")){
+    sel.innerHTML = options.map(o=>`<option value="${o}">${o}</option>`).join("");
+    sel.dataset.filled = options.join(",");
+  }
+  sel.value = current;
+}
+$("modelSel").onchange = (e)=> api("/api/model",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:e.target.value})}).then(refreshState).catch(err=>toast(err.message));
+$("modeSel").onchange = (e)=> api("/api/mode",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:e.target.value})}).then(refreshState).catch(err=>toast(err.message));
+$("undoBtn").onclick = ()=> api("/api/undo",{method:"POST"}).then(r=>toast(r.message||"done")).catch(err=>toast(err.message));
+$("compactBtn").onclick = ()=> api("/api/compact",{method:"POST"}).then(r=>toast(r.compacted?"context compacted":"nothing to compact")).catch(err=>toast(err.message));
+
+async function refreshSessions(){
+  try{
+    const {sessions} = await api("/api/sessions");
+    const st = await api("/api/state");
+    const el = $("sessions"); el.innerHTML="";
+    for(const s of sessions){
+      const d = document.createElement("div");
+      d.className = "sess"+(s.id===st.session.id?" active":"");
+      d.innerHTML = `<div class="t">${esc(s.title||"(untitled)")}</div><div class="m">${s.messages} msgs · $${(s.costUsd||0).toFixed(3)}</div>`;
+      d.onclick = async ()=>{
+        if(busy) return toast("wait for the current turn");
+        try{ await api("/api/session/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:s.id})});
+          await loadHistory(); await refreshState(); await refreshSessions();
+        }catch(e){ toast(e.message); }
+      };
+      el.appendChild(d);
+    }
+  }catch(e){ /* sidebar refresh is non-critical */ }
+}
+$("newChat").onclick = async ()=>{
+  if(busy) return toast("wait for the current turn");
+  try{ await api("/api/session/new",{method:"POST"}); chat.innerHTML=""; location.reload(); }catch(e){ toast(e.message); }
+};
+
+async function loadHistory(){
+  chat.innerHTML="";
+  const {messages, todos} = await api("/api/history");
+  let r = null;
+  const toolInputs = {};
+  for(const m of messages){
+    if(m.role==="user" && typeof m.content==="string" && !m._meta?.compactBoundary){ addUser(m.content); r=null; }
+    else if(m.role==="user" && m._meta?.compactBoundary){ const rr=row("a","· compacted ·"); note(rr, m.content.slice(0,300)+"…"); }
+    else if(m.role==="assistant"){
+      if(!r) r = newAssistantRow();
+      if(m.reasoning_content){ assistantThink(r, m.reasoning_content); if(r._thinkSummary) r._thinkSummary.textContent="✻ thought process"; }
+      if(m.content) assistantText(r, m.content);
+      for(const tc of (m.tool_calls||[])){
+        let input={}; try{ input=JSON.parse(tc.function.arguments||"{}"); }catch{}
+        toolInputs[tc.id] = {name:tc.function.name, input};
+        toolCard(r, {id:tc.id, name:tc.function.name, input, preview: previewOf(tc.function.name, input)});
+      }
+      r._textEl=null; r._md="";
+    }
+    else if(m.role==="tool"){
+      if(!r) r = newAssistantRow();
+      const known = toolInputs[m.tool_call_id]||{name:"tool",input:{}};
+      finishToolCard(r, {id:m.tool_call_id, name:known.name, input:known.input, ok:true, output:String(m.content||"").slice(0,4000), ms:0});
+    }
+  }
+  renderTodos(todos);
+  scrollDown();
+}
+function previewOf(name, input){
+  if(name==="bash") return input.command||"";
+  if(name==="write_file"||name==="edit_file"||name==="read_file"||name==="list_dir") return input.path||"";
+  if(name==="glob"||name==="grep") return input.pattern||"";
+  if(name==="fetch_url") return input.url||"";
+  if(name==="task") return input.description||"";
+  return JSON.stringify(input).slice(0,80);
+}
+
+/* ---------------- hints & theme ---------------- */
+document.querySelectorAll("#empty .hint").forEach(h=>h.onclick=()=>{ $("input").value=h.textContent; send(); });
+$("themeBtn").onclick = ()=>{
+  const cur = document.documentElement.dataset.theme==="light"?"":"light";
+  document.documentElement.dataset.theme = cur;
+  localStorage.setItem("cs-theme", cur);
+};
+document.documentElement.dataset.theme = localStorage.getItem("cs-theme")||"";
+
+/* ---------------- boot ---------------- */
+(async function boot(){
+  if(!token){ toast("missing ?token= — copy the URL printed by claudeseek --serve"); }
+  await refreshState();
+  await refreshSessions();
+  try{ const h = await api("/api/history"); if(h.messages?.length) await loadHistory(); }catch{}
+  autoGrow();
+})();
+</script>
+</body>
+</html>

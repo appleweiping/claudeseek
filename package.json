@@ -1,0 +1,46 @@
+{
+  "name": "claudeseek",
+  "version": "1.0.0",
+  "description": "A local-first AI coding agent — Claude Code's industrial architecture fused with DeepSeek V4. CLI + local Web UI, zero runtime dependencies.",
+  "type": "module",
+  "license": "MIT",
+  "author": "appleweiping",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/appleweiping/claudeseek.git"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "bin": {
+    "claudeseek": "bin/claudeseek.js",
+    "cseek": "bin/claudeseek.js"
+  },
+  "main": "src/index.js",
+  "files": [
+    "bin/",
+    "src/",
+    "public/",
+    "prompts/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/claudeseek.js",
+    "doctor": "node bin/claudeseek.js --doctor",
+    "test": "node scripts/e2e-core.mjs && node scripts/e2e-cli.mjs && node scripts/e2e-server.mjs",
+    "test:core": "node scripts/e2e-core.mjs",
+    "test:cli": "node scripts/e2e-cli.mjs",
+    "test:server": "node scripts/e2e-server.mjs"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "cli",
+    "deepseek",
+    "claude",
+    "coding-assistant",
+    "llm",
+    "web-ui"
+  ]
+}

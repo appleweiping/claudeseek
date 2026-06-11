@@ -1,0 +1,32 @@
+{
+  "//": "Copy to ~/.claudeseek/config.json and edit. All fields are optional; claudeseek falls back to DEEPSEEK_API_KEY and sane defaults. No key needs pasting if DEEPSEEK_API_KEY is set in your environment.",
+  "llm": {
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "base_url": "https://api.deepseek.com",
+    "thinking": "auto",
+    "reasoning_effort": "high",
+    "max_tokens": 8192
+  },
+  "agent": {
+    "permission_mode": "default",
+    "max_iterations": 60,
+    "compact_threshold": 0.75
+  },
+  "server": { "port": 3618, "open": false },
+  "memory": { "agentmemory_url": "http://localhost:3111", "enabled": true },
+  "providers": {
+    "relay": {
+      "provider": "openai",
+      "base_url": "https://your-openai-compatible-endpoint/v1",
+      "api_key_env": "OPENAI_API_KEY",
+      "model": "gpt-5.5",
+      "default_headers": { "User-Agent": "curl/8.7.1" }
+    }
+  },
+  "mcp_servers": {
+    "//": "Example: an stdio MCP server. Its tools appear as mcp__<name>__<tool>.",
+    "example": { "command": "node", "args": ["path/to/mcp-server.js"], "env": {} }
+  }
+}

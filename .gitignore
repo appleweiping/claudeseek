@@ -1,0 +1,15 @@
+# runtime state
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# local user state (never commit)
+.claudeseek/
+*.local.json
+.env
+.env.*
+
+# test artifacts
+tmp/
+coverage/
