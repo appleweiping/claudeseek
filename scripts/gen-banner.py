@@ -4,12 +4,15 @@
 Same pencil-sketch pipeline and house style as D:/Company/.banner-gen
 (gen_banners.py) so claudeseek's banner sits in the owner's GitHub banner family
 (see refs: weiping-whale.png, kbuilt-girl.png). Subject expresses the
-Claude × DeepSeek fusion: warm terracotta (Claude) + deep-sea blue (DeepSeek).
+Claude x DeepSeek fusion: warm terracotta (Claude) + deep-sea blue (DeepSeek).
+
+IMPORTANT (owner rule, 2026-06-12): image generation must use the OFFICIAL
+OpenAI endpoint only — never a relay/proxy. Use a genuine OPENAI_API_KEY against
+api.openai.com (the default). Do not point OPENAI_BASE_URL at a relay.
 
 Usage:
-  set OPENAI_API_KEY (relay key) then:  python scripts/gen-banner.py
-  optional: BANNER_IMAGE_MODEL (default gpt-image-2),
-            OPENAI_BASE_URL (relay endpoint).
+  set a genuine OPENAI_API_KEY, then:  python scripts/gen-banner.py
+  optional: BANNER_IMAGE_MODEL (default gpt-image-2).
 """
 import base64
 import os
@@ -80,11 +83,12 @@ def main():
     if not key:
         print("OPENAI_API_KEY not set", file=sys.stderr)
         return 1
+    # Official OpenAI endpoint only (api.openai.com by default). No relay, no
+    # User-Agent spoof — image generation must not be proxied (owner rule).
     kwargs = {"api_key": key}
     base = os.environ.get("OPENAI_BASE_URL")
     if base:
         kwargs["base_url"] = base
-        kwargs["default_headers"] = {"User-Agent": "curl/8.7.1"}
     client = OpenAI(**kwargs)
     model = os.environ.get("BANNER_IMAGE_MODEL", "gpt-image-2")
     prompt = (

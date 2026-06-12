@@ -1,8 +1,4 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="claudeseek" width="900" />
-</p>
-
-<p align="center">
   <strong>claudeseek</strong> — a local-first AI coding agent.<br>
   Claude Code's industrial agent architecture, fused with the DeepSeek V4 engine.
 </p>
