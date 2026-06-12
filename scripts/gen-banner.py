@@ -78,18 +78,53 @@ def save_wide_banner(b64, out):
     os.remove(tmp)
 
 
-def main():
+def resolve_official_credentials():
+    """Return (api_key, base_url) for the OFFICIAL OpenAI endpoint, or raise.
+
+    Owner rule: image generation must hit api.openai.com directly — never a
+    relay/proxy. This machine sets a global OPENAI_BASE_URL + OPENAI_API_KEY that
+    point at a relay (for chat), so we must NOT blindly inherit them here:
+
+      1. OPENAI_API_KEY_OFFICIAL (if set) is always treated as a genuine
+         api.openai.com key and wins — it sidesteps the relay env entirely.
+      2. Otherwise OPENAI_API_KEY is accepted ONLY when OPENAI_BASE_URL is unset
+         or already official (api.openai.com). A relay base_url is refused.
+    """
+    def is_official(base):
+        if not base:
+            return True
+        host = base.split("//", 1)[-1].split("/", 1)[0].lower()
+        return host == "api.openai.com" or host.endswith(".api.openai.com")
+
+    official_key = os.environ.get("OPENAI_API_KEY_OFFICIAL")
+    if official_key:
+        return official_key, "https://api.openai.com/v1"
+
     key = os.environ.get("OPENAI_API_KEY")
-    if not key:
-        print("OPENAI_API_KEY not set", file=sys.stderr)
-        return 1
-    # Official OpenAI endpoint only (api.openai.com by default). No relay, no
-    # User-Agent spoof — image generation must not be proxied (owner rule).
-    kwargs = {"api_key": key}
     base = os.environ.get("OPENAI_BASE_URL")
-    if base:
-        kwargs["base_url"] = base
-    client = OpenAI(**kwargs)
+    if not key:
+        raise RuntimeError(
+            "No official key. Set OPENAI_API_KEY_OFFICIAL to a genuine "
+            "api.openai.com key (image generation must not be proxied)."
+        )
+    if not is_official(base):
+        raise RuntimeError(
+            f"Refusing to generate via non-official endpoint '{base}'. "
+            "Owner rule: gpt-image must hit api.openai.com only. Set "
+            "OPENAI_API_KEY_OFFICIAL (a genuine OpenAI key) to proceed; the "
+            "relay OPENAI_BASE_URL/OPENAI_API_KEY are ignored for images."
+        )
+    return key, base or "https://api.openai.com/v1"
+
+
+def main():
+    try:
+        key, base_url = resolve_official_credentials()
+    except RuntimeError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    # Official OpenAI endpoint only. No relay, no User-Agent spoof.
+    client = OpenAI(api_key=key, base_url=base_url)
     model = os.environ.get("BANNER_IMAGE_MODEL", "gpt-image-2")
     prompt = (
         f"Create a wide README banner illustration for an open-source AI coding "

@@ -6,6 +6,20 @@
  */
 import { spawn } from "node:child_process";
 
+// Spawned commands inherit the agent's environment, which holds provider keys
+// (DEEPSEEK_API_KEY, OPENAI_API_KEY, relay tokens…). Strip anything that looks
+// like a credential by name so an executed command — or an exfiltration attempt
+// inside one — can't read the agent's own keys out of its environment. Denylist
+// (not allowlist) so commands that legitimately need PATH/proxy/locale still work.
+const SECRET_ENV_RE = /(_|^)(API_?KEY|KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|CREDENTIALS|AUTH|SESSION|COOKIE)S?($|_)/i;
+function sanitizedEnv(extra = {}) {
+  const env = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (!SECRET_ENV_RE.test(k)) env[k] = v;
+  }
+  return { ...env, ...extra };
+}
+
 const HARD_BLOCK = [
   /\brm\s+(-[a-z]*r[a-z]*f|-[a-z]*f[a-z]*r)[a-z]*\s+([\/~]|\$home|[a-z]:\\(?:\s|$))/i,
   /\bdel\s+\/[sq]\s+\/[sq]?\s*[a-z]:\\(?:\s|$)/i,
@@ -75,7 +89,7 @@ export const bashTool = {
       let settled = false;
       const child = spawn(shell, args, {
         cwd: ctx.cwd,
-        env: { ...process.env, CLAUDESEEK: "1" },
+        env: sanitizedEnv({ CLAUDESEEK: "1" }),
         windowsHide: true,
       });
       const finish = (ok, suffix = "") => {

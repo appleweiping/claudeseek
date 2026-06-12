@@ -13,3 +13,4 @@ Thumbs.db
 # test artifacts
 tmp/
 coverage/
+__pycache__/

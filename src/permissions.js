@@ -12,7 +12,7 @@
  * Modes mirror Claude Code: default | acceptEdits | bypassPermissions | plan.
  */
 import { classifyCommand } from "./tools/shell.js";
-import { resolve } from "node:path";
+import { resolve, relative, isAbsolute } from "node:path";
 
 export const PERMISSION_MODES = ["default", "acceptEdits", "bypassPermissions", "plan"];
 
@@ -66,8 +66,13 @@ export class Permissions {
     if (tool.kind === "write") {
       if (this.mode === "acceptEdits") {
         // Writes that escape the workspace still ask even in acceptEdits.
+        // Use a path-segment-aware containment check: a raw prefix match would
+        // treat C:\proj-secrets\x as inside cwd C:\proj. relative() is '' for
+        // the dir itself and starts with '..' (or is absolute on another drive)
+        // for anything outside.
         const target = resolve(this.cwd, String(input.path || ""));
-        if (target.toLowerCase().startsWith(this.cwd.toLowerCase())) {
+        const rel = relative(this.cwd, target);
+        if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) {
           return { behavior: "allow", reason: "acceptEdits" };
         }
       }
