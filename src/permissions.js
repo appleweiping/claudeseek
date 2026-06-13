@@ -63,6 +63,11 @@ export class Permissions {
     if (tool.kind === "read" || tool.kind === "meta" || tool.kind === "net") {
       return { behavior: "allow", reason: "safe tool" };
     }
+    // Untrusted MCP server tools (arbitrary external code) require approval; an
+    // "always" grant (step 3 above) then auto-allows that tool for the session.
+    if (tool.kind === "mcp") {
+      return this.#ask(tool, input, signal);
+    }
     if (tool.kind === "write") {
       if (this.mode === "acceptEdits") {
         // Writes that escape the workspace still ask even in acceptEdits.

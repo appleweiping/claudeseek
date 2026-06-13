@@ -168,7 +168,11 @@ export class McpManager {
       for (const t of server.tools) {
         out.push({
           name: `mcp__${server.name}__${t.name}`,
-          kind: "net",
+          // MCP tools are arbitrary external code (a server can read files, run
+          // shells, hit the network). Gate them behind the approval pipeline by
+          // default (kind "mcp" -> #ask). A server the user explicitly trusts in
+          // config (`trusted: true`) opts its tools back into auto-allow.
+          kind: server.spec.trusted === true ? "net" : "mcp",
           description: `[MCP:${server.name}] ${t.description || t.name}`.slice(0, 1000),
           parameters: t.inputSchema || { type: "object", properties: {} },
           execute: async (input) => {
