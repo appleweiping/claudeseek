@@ -7,7 +7,9 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startFake } from "./fake-deepseek.mjs";
+import { isolateHome } from "./test-home.mjs";
 
+const home = isolateHome("cseek-cli-home-");
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const { server, url } = await startFake();
 const cwd = mkdtempSync(join(tmpdir(), "cseek-cli-"));
@@ -101,5 +103,6 @@ console.log("e2e-cli: --doctor --json");
 
 server.close();
 rmSync(cwd, { recursive: true, force: true });
+home.cleanup();
 console.log(`\ne2e-cli: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

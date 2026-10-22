@@ -6,7 +6,9 @@ import { mkdtempSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startFake } from "./fake-deepseek.mjs";
+import { isolateHome } from "./test-home.mjs";
 
+const home = isolateHome("cseek-srv-home-");
 const { server: fake, url } = await startFake();
 process.env.DEEPSEEK_API_KEY = "sk-fake";
 process.env.DEEPSEEK_BASE_URL = url;
@@ -127,5 +129,6 @@ console.log("e2e-server: state/sessions/undo/history");
 server.close();
 fake.close();
 rmSync(cwd, { recursive: true, force: true });
+home.cleanup();
 console.log(`\ne2e-server: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

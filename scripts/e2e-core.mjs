@@ -1,11 +1,13 @@
 /**
  * e2e-core.mjs — engine + tools + permissions + undo + compaction, offline.
  */
-import { mkdtempSync, existsSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startFake } from "./fake-deepseek.mjs";
+import { isolateHome } from "./test-home.mjs";
 
+const home = isolateHome("cseek-core-home-");
 const { server, url } = await startFake();
 process.env.DEEPSEEK_API_KEY = "sk-fake-e2e";
 process.env.DEEPSEEK_BASE_URL = url;
@@ -28,6 +30,10 @@ const check = (name, cond, extra = "") => {
   }
 };
 
+// Other tools' config folders must be ignored: plant one in the fake home.
+mkdirSync(join(home.dir, ".deepseek-cli"), { recursive: true });
+writeFileSync(join(home.dir, ".deepseek-cli", "config.toml"), '[llm]\napi_key_env = "OTHER_TOOL_KEY"\ntemperature = 1.7\n');
+
 const cwd = mkdtempSync(join(tmpdir(), "cseek-e2e-"));
 const config = loadConfig(cwd);
 config.agent.permission_mode = "default";
@@ -38,6 +44,10 @@ async function run(engine, text) {
   return events;
 }
 const byType = (evs, t) => evs.filter((e) => e.type === t);
+
+console.log("e2e-core: config isolation");
+check("ignores ~/.deepseek-cli", config.llm.api_key_env === "DEEPSEEK_API_KEY" && config.llm.temperature === 0.3, JSON.stringify(config._sources));
+check("state dir is the temp home", (await import("../src/config.js")).userDir().startsWith(home.dir));
 
 console.log("e2e-core: plain streaming");
 {
@@ -143,7 +153,22 @@ console.log("e2e-core: glob/grep tools directly");
   check("grep finds content", /find-me\.txt:1/.test(r.output), r.output);
 }
 
+console.log("e2e-core: multi-step demo (read → edit → run)");
+{
+  writeFileSync(join(cwd, "greet.js"), 'console.log("Helo, world!");\n');
+  const asks = [];
+  const engine = new Engine({ config, cwd, asker: async (req) => (asks.push(req.tool), "allow") });
+  const evs = await run(engine, "fix the typo in greet.js");
+  const ends = byType(evs, "tool-end");
+  check("three tool calls", ends.length === 3, JSON.stringify(ends.map((e) => e.name)));
+  check("edit and bash asked for approval", asks.join(",") === "edit_file,bash", asks.join(","));
+  check("file fixed on disk", readFileSync(join(cwd, "greet.js"), "utf8").includes("Hello, world!"));
+  check("bash output is real", /Hello, world!/.test(ends[2]?.output || ""), ends[2]?.output);
+  check("final answer", /it now prints/.test(byType(evs, "done")[0]?.text || ""));
+}
+
 server.close();
 rmSync(cwd, { recursive: true, force: true });
+home.cleanup();
 console.log(`\ne2e-core: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

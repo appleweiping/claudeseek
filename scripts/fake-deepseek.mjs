@@ -5,6 +5,8 @@
  *   WRITE_TEST  → tool_calls write_file(tmp-e2e/hello.txt) then "file written ok"
  *   BASH_TEST   → tool_calls bash(echo e2e-bash-ok) then "bash done"
  *   SUMMARIZE   → (used by compaction) returns "SUMMARY: …"
+ *   "…typo in greet.js…" → read_file, edit_file, bash, then a short answer
+ *                (the scripted session behind `npm run demo`)
  * Exports startFake() → {server, port, url}.
  */
 import { createServer } from "node:http";
@@ -66,6 +68,32 @@ export function startFake() {
         send(chunk({ role: "assistant", content: "SUMMARY: goals, files, findings preserved." }));
         send(chunk({}, "stop"));
         finishStream(80);
+        return;
+      }
+
+      // Multi-step demo used by `npm run demo` and e2e-core: read → edit → run → answer.
+      const firstUser = messages.find((m) => m.role === "user");
+      if (/typo in greet\.js/i.test(String(firstUser?.content || ""))) {
+        const step = messages.filter((m) => m.role === "tool").length;
+        const call = (id, name, args) =>
+          send(chunk({ tool_calls: [{ index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } }] }));
+        if (step === 0) {
+          send(chunk({ role: "assistant", reasoning_content: "Read the file first, then fix it." }));
+          call("call_d1", "read_file", { path: "greet.js" });
+        } else if (step === 1) {
+          call("call_d2", "edit_file", { path: "greet.js", old_string: "Helo", new_string: "Hello" });
+        } else if (step === 2) {
+          call("call_d3", "bash", { command: "node greet.js", description: "run the fixed script" });
+        } else {
+          const tail = JSON.stringify(messages[messages.length - 1]?.content || "");
+          const ran = /Hello, world!/.test(tail) ? "it now prints `Hello, world!`" : "but running it did not print the expected line";
+          send(chunk({ role: "assistant", content: `Fixed the typo in greet.js (\`Helo\` → \`Hello\`) and ran it: ${ran}.` }));
+          send(chunk({}, "stop"));
+          finishStream(900);
+          return;
+        }
+        send(chunk({}, "tool_calls"));
+        finishStream(900);
         return;
       }
 
