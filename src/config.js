@@ -2,16 +2,14 @@
  * config.js — layered configuration for claudeseek.
  *
  * Resolution order (first hit wins per key, later layers fill gaps):
- *   1. CLI flags (applied by the caller via applyOverrides)
+ *   1. CLI flags (applied by the caller)
  *   2. Environment variables (DEEPSEEK_API_KEY, CLAUDESEEK_MODEL, ...)
  *   3. ./.claudeseek/config.json   (workspace)
  *   4. ~/.claudeseek/config.json   (user)
- *   5. ~/.deepseek-cli/config.toml (existing WEIPING_WHALE/DeepSeek CLI install —
- *      claudeseek reuses the machine's DeepSeek credentials so no key re-entry)
- *   6. built-in defaults
+ *   5. built-in defaults
  *
- * Zero dependencies: includes a small TOML-subset reader good enough for the
- * flat [section] key = "value" files the DeepSeek CLI family writes.
+ * claudeseek only reads its own config files and the environment. It never
+ * looks inside other tools' config folders for keys or endpoints.
  */
 import { existsSync, readFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
@@ -30,7 +28,7 @@ export const MODELS = {
   },
 };
 
-/** Alias → { model, thinking? }. Mirrors the WEIPING_WHALE naming family. */
+/** Alias → { model, thinking? }. */
 export const MODEL_ALIASES = {
   pro: { model: "deepseek-v4-pro" },
   flash: { model: "deepseek-v4-flash" },
@@ -65,7 +63,7 @@ export const DEFAULTS = {
   },
   server: { port: 3618, open: false },
   subagents: { max_depth: 2, max_iterations: 20 },
-  memory: { agentmemory_url: "http://localhost:3111", enabled: true },
+  memory: { agentmemory_url: "http://localhost:3111", enabled: false }, // optional agentmemory server
   mcp_servers: {},
   pricing: {},
 };
@@ -78,56 +76,6 @@ export function ensureUserDirs() {
   for (const d of ["", "sessions", "undo", "skills", "memory-outbox"]) {
     mkdirSync(join(userDir(), d), { recursive: true });
   }
-}
-
-/** Tiny TOML subset reader: [section] / key = value (string|number|bool). */
-export function parseTomlSubset(raw) {
-  const out = {};
-  let section = out;
-  for (const lineRaw of raw.split(/\r?\n/)) {
-    const line = lineRaw.trim();
-    if (!line || line.startsWith("#")) continue;
-    const sec = line.match(/^\[([A-Za-z0-9_.-]+)\]$/);
-    if (sec) {
-      section = {};
-      const parts = sec[1].split(".");
-      let cur = out;
-      for (let i = 0; i < parts.length; i++) {
-        if (i === parts.length - 1) cur[parts[i]] = cur[parts[i]] || section;
-        else cur = cur[parts[i]] = cur[parts[i]] || {};
-      }
-      section = parts.reduce((acc, p) => acc[p], out);
-      continue;
-    }
-    const kv = line.match(/^([A-Za-z0-9_-]+)\s*=\s*(.+)$/);
-    if (!kv) continue;
-    let [, key, val] = kv;
-    if (val.startsWith('"""')) continue; // skip multi-line strings (system prompts etc.)
-    const hash = findCommentStart(val);
-    if (hash >= 0) val = val.slice(0, hash).trim();
-    if (/^".*"$/.test(val) || /^'.*'$/.test(val)) section[key] = val.slice(1, -1);
-    else if (val === "true" || val === "false") section[key] = val === "true";
-    else if (!Number.isNaN(Number(val))) section[key] = Number(val);
-    else section[key] = val;
-  }
-  return out;
-}
-
-function findCommentStart(val) {
-  let inStr = false;
-  let quote = "";
-  for (let i = 0; i < val.length; i++) {
-    const ch = val[i];
-    if (inStr) {
-      if (ch === quote) inStr = false;
-    } else if (ch === '"' || ch === "'") {
-      inStr = true;
-      quote = ch;
-    } else if (ch === "#") {
-      return i;
-    }
-  }
-  return -1;
 }
 
 function deepMerge(target, source) {
@@ -154,25 +102,6 @@ function readJsonIf(path) {
 export function loadConfig(cwd = process.cwd()) {
   const config = structuredClone(DEFAULTS);
   const sources = [];
-
-  // 5) existing DeepSeek CLI installs (key + endpoint reuse, lowest data layer)
-  for (const legacy of [
-    join(homedir(), ".weiping-whale", "config.toml"),
-    join(homedir(), ".deepseek-cli", "config.toml"),
-  ]) {
-    if (!existsSync(legacy)) continue;
-    try {
-      const t = parseTomlSubset(readFileSync(legacy, "utf8"));
-      if (t.llm) {
-        const { base_url, api_key_env, temperature } = t.llm;
-        deepMerge(config.llm, { base_url, api_key_env, temperature });
-        sources.push(`legacy:${legacy}`);
-      }
-      break;
-    } catch {
-      /* unreadable legacy config is non-fatal */
-    }
-  }
 
   // 4) user config, 3) workspace config
   for (const p of [join(userDir(), "config.json"), join(cwd, ".claudeseek", "config.json")]) {
