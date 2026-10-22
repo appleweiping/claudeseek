@@ -1,205 +1,223 @@
-<p align="center">
-  <img src="assets/banner.png" alt="claudeseek — local-first AI coding agent" width="100%">
-</p>
+# claudeseek
 
-<p align="center">
-  <strong>claudeseek</strong> — a local-first AI coding agent.<br>
-  Claude Code's industrial agent architecture, fused with the DeepSeek V4 engine.
-</p>
+claudeseek is a small coding agent for the DeepSeek API that runs on your own
+machine: it reads, searches, edits and runs code in a project from a terminal
+REPL or a local web page, and asks before it writes a file or runs a command.
+It is plain Node.js with no npm dependencies.
 
-<p align="center">
-  <a href="#install">Install</a> ·
-  <a href="#cli">CLI</a> ·
-  <a href="#web-ui">Web UI</a> ·
-  <a href="#providers">Providers</a> ·
-  <a href="#architecture">Architecture</a> ·
-  <a href="#safety">Safety</a>
-</p>
+> **Not affiliated with Anthropic or DeepSeek.** The name is a nod to the
+> tools that inspired it (Claude Code's agent loop and permission modes, the
+> DeepSeek API it talks to). It contains no code from either company. If you
+> prefer a neutral command name, the package also installs `cseek`.
 
-<p align="center">
-  <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518.17-5eb67d">
-  <img alt="deps" src="https://img.shields.io/badge/runtime%20deps-0-4d6bfe">
-  <img alt="engine" src="https://img.shields.io/badge/engine-DeepSeek%20V4-4d6bfe">
-  <img alt="license" src="https://img.shields.io/badge/license-MIT-d97757">
-</p>
+[![test](https://github.com/appleweiping/claudeseek/actions/workflows/test.yml/badge.svg)](https://github.com/appleweiping/claudeseek/actions/workflows/test.yml)
 
----
+## What a session looks like
 
-claudeseek is a real coding agent you run on your own machine — not a toy wrapper.
-It reads, searches, edits, and runs code through a permission-gated tool loop, the
-same shape Claude Code uses, with two faces over one engine:
+This is `npm run demo`, copied from my terminal. The demo starts the fake
+DeepSeek server in `scripts/fake-deepseek.mjs`, so the model's replies are
+scripted; the tool calls, the approval prompts, the file edit and the
+`node greet.js` output are real.
 
-- a **terminal REPL** with streaming output, slash commands, and inline approvals;
-- a **local Web UI** (127.0.0.1, token-gated) with live tool-call cards, an
-  approval flow, a context meter, sessions, and a cost panel.
+```text
+$ npm run demo
 
-It reads your machine's **DeepSeek** credentials automatically — no key to paste —
-and can switch to any **OpenAI-compatible** endpoint (a relay that serves
-Claude / GPT) without touching code. Zero runtime dependencies: just Node ≥ 18.
+  claudeseek v1.0.0
+  a local coding agent for the DeepSeek API
 
-> **Lineage.** The architecture is studied from the publicly-exposed Claude Code
-> source (`QueryEngine`, the tool/permission model, context assembly, the
-> message-centric sub-agent pattern) and re-implemented from scratch in plain
-> ESM JavaScript for the DeepSeek API. It is a sibling to
-> [WEIPING_WHALE](https://github.com/appleweiping/WEIPING_WHALE) (the TypeScript
-> DeepSeek CLI) — claudeseek adds the Web UI, the composable permission pipeline,
-> and multi-provider routing. Not affiliated with Anthropic or DeepSeek.
+  cwd    D:\Temp\cseek-demo-VVVZK4
+  model  deepseek-v4-flash · thinking auto · mode default
+  key    env:DEEPSEEK_API_KEY
+
+  /help for commands · Ctrl+C aborts a turn
+
+❯ fix the typo in greet.js
+✻ thinking… Read the file first, then fix it.
+
+⏺ read_file(greet.js)
+  ⎿ ok      1	console.log("Helo, world!"); · 9ms
+
+⏺ edit_file(greet.js (replace Helo…))
+
+◆ approval needed edit_file (write)
+  greet.js (replace Helo…)
+  allow? [y]es / [a]lways / [n]o y
+  ⎿ ok Edited D:\Temp\cseek-demo-VVVZK4\greet.js (1 replacement) · 37ms
+
+⏺ bash(node greet.js)
+
+◆ approval needed bash (shell)
+  node greet.js
+  allow? [y]es / [a]lways / [n]o y
+  ⎿ ok Hello, world! · 3622ms
+
+Fixed the typo in greet.js (`Helo` → `Hello`) and ran it: it now prints `Hello, world!`.
+$0.0003 · 3.7k tok · cache 50% · default · deepseek-v4-flash
+
+❯ /quit
+
+[demo] greet.js now contains: console.log("Hello, world!");
+```
+
+(The 3.6 s on `bash` is PowerShell starting up on Windows; on Linux it is a few
+milliseconds. The cost line is computed from the token counts the fake server
+reports.)
+
+The same turn in the web UI (`claudeseek --serve`), captured with headless
+Chromium against the same fake server:
+
+![claudeseek web UI after the greet.js turn](docs/web-ui.png)
 
 ## Install
+
+You need Node.js 18.17 or newer. There is nothing to download from npm; the
+package is not published there.
 
 ```bash
 git clone https://github.com/appleweiping/claudeseek.git
 cd claudeseek
-npm install          # installs nothing — there are no dependencies; just links the bin
-npm link             # optional: puts `claudeseek` / `cseek` on your PATH
-node bin/claudeseek.js --doctor
+npm run demo         # the session above, no API key needed
+npm link             # optional: puts `claudeseek` and `cseek` on your PATH
 ```
 
-State lives in `~/.claudeseek/` (sessions, undo snapshots, skills, config,
-memory outbox). The CLI exposes two commands: `claudeseek` and `cseek`.
+## Use it with a real key
 
-## First run
+claudeseek looks for a key in this order and nowhere else:
 
-claudeseek finds your DeepSeek key automatically, in this order:
+1. the `DEEPSEEK_API_KEY` environment variable (or whatever `llm.api_key_env` names);
+2. `llm.api_key` in `./.claudeseek/config.json` or `~/.claudeseek/config.json`.
 
-1. `DEEPSEEK_API_KEY` (environment)
-2. `~/.claudeseek/config.json` → `llm.api_key`
-3. an existing `~/.deepseek-cli/config.toml` / `~/.weiping-whale/config.toml`
-   install (endpoint + key reuse — nothing to re-enter)
+See `config.example.json` for every option.
 
 ```bash
-claudeseek                       # interactive REPL
+export DEEPSEEK_API_KEY=sk-...
+claudeseek --doctor                    # checks the key, endpoint and Node version
+claudeseek                             # interactive REPL in the current directory
 claudeseek -p "summarize this repo's architecture"
 claudeseek -m pro --mode plan -p "review auth.js for security gaps"
-claudeseek --serve --open        # local Web UI
-claudeseek --doctor --json       # diagnostics, machine-readable
-claudeseek --last                # resume the most recent session
+claudeseek --serve --open              # web UI on 127.0.0.1:3618
+claudeseek --last                      # resume the most recent session
 ```
 
-## CLI
+Sessions, undo snapshots and user skills live in `~/.claudeseek/`.
 
-The REPL streams the model's thinking and answer, renders each tool call as it
-runs, and asks before anything risky.
+### REPL commands
 
-| Slash command | What it does |
+| Command | What it does |
 | --- | --- |
 | `/model [name]` | show or switch model: `pro`, `flash`, `auto`, `reasoner`, `chat` |
 | `/mode [m]` | permission mode: `default`, `acceptEdits`, `bypassPermissions`, `plan` |
 | `/cost` | session cost, per-model breakdown, cache-hit ratio |
-| `/context` | context-window usage estimate |
-| `/compact` | summarize older turns to reclaim context |
-| `/undo` | revert the last turn's file changes |
+| `/context`, `/compact` | context-window estimate; summarize older turns to free space |
+| `/undo` | revert the file changes from the last turn |
 | `/sessions`, `/resume <id>` | list and reopen past sessions |
-| `/skills`, `/skill <name>` | discover and inject `SKILL.md` skills |
-| `/todos` | show the agent's live task list |
-| `/mcp`, `/memory` | MCP server status · agentmemory status |
-| `/remember <text>`, `/recall <q>` | write to / search agentmemory |
-| `/help`, `/quit` | help · exit (Ctrl+C aborts a running turn) |
+| `/skills`, `/skill <name>` | list `SKILL.md` files and inject one into the conversation |
+| `/todos`, `/mcp` | the agent's task list; MCP server status |
+| `/help`, `/quit` | help; exit (Ctrl+C aborts a running turn) |
 
-`--model auto` runs a zero-cost keyword router per turn: hard signals
-(`debug`, `architecture`, `调试`, `根因`) → V4 Pro + max thinking; light ones
-(`search`, `format`, `翻译`) → Flash; everything else → Flash + thinking.
+`--model auto` picks a model per turn with a keyword rule in `src/router.js`
+(words like "debug" or "架构" go to the Pro model with more thinking; "format"
+or "翻译" go to Flash). It costs nothing because no extra request is made.
 
-## Web UI
+### Web UI
 
-```bash
-claudeseek --serve --port 3618 --open
-```
+`claudeseek --serve` starts a single-file page on `127.0.0.1` behind a token
+that is printed at startup (pin it with `CLAUDESEEK_TOKEN`). Tool calls show
+as cards you can expand, risky calls show an Allow / Always / Deny card, and
+there is a session list, context meter, cost line, undo and compact. The
+browser only talks to the local server; the API key stays in the server
+process.
 
-A single self-contained page bound to `127.0.0.1`, gated by a bearer token
-printed once at startup (pin it with `CLAUDESEEK_TOKEN`). It streams turns over
-NDJSON and gives you:
+### Other OpenAI-compatible endpoints
 
-- **tool-call cards** that expand to show inputs and full output;
-- an **approval flow** — risky calls pop an Allow / Always / Deny card inline;
-- a **context meter**, **cost chip**, **todo panel**, and **session sidebar**;
-- **markdown + code rendering** with copy buttons, light / dark themes;
-- one-click **model / permission-mode** switches, **undo**, and **compact**.
-
-The browser talks only to your local server; the server holds the API key.
-
-## Providers
-
-claudeseek defaults to **DeepSeek** (国产 V4 models). To point it at any
-OpenAI-compatible endpoint — for example a relay that serves Claude or GPT —
-set one environment variable:
+DeepSeek is the default. To use any OpenAI-compatible endpoint instead:
 
 ```bash
-# DeepSeek (default): uses DEEPSEEK_API_KEY
-claudeseek -p "..."
-
-# OpenAI-compatible relay: uses OPENAI_BASE_URL + OPENAI_API_KEY
-CLAUDESEEK_PROVIDER=relay claudeseek -m gpt-5.5 -p "..."
+OPENAI_BASE_URL=https://example.com/v1 OPENAI_API_KEY=... \
+  CLAUDESEEK_PROVIDER=relay claudeseek -m some-model -p "..."
 ```
 
-Under `provider: "deepseek"` the client sends V4 thinking params
-(`thinking`, `reasoning_effort`); under `provider: "openai"` it speaks plain
-chat-completions so any compatible backend works. Define named providers in
-`~/.claudeseek/config.json` → `providers`.
+With `provider: "deepseek"` the client sends DeepSeek's thinking parameters;
+with `provider: "openai"` it sends plain chat-completions requests. Named
+providers can be defined under `providers` in the config file.
 
-## Safety
+## Permissions
 
-Permissions follow Claude Code's layered model — first non-null wins:
+Every tool call goes through `src/permissions.js`; the first rule that gives an
+answer wins:
 
-1. **hard rules** — broadly destructive shell commands (`rm -rf /`,
-   `Remove-Item -Recurse C:\`, fork bombs, disk format) are blocked in **every**
-   mode;
-2. **mode rules** — `plan` is read-only; `bypassPermissions` auto-allows;
-3. **session grants** — "Always allow" remembers a rule for the session;
-4. **kind defaults** — reads/search/meta auto-allow; writes ask (auto in
-   `acceptEdits` inside the workspace); safe read-only shell prefixes auto-allow;
-5. **the approver** — REPL prompt or Web UI card. Headless with no approver
-   denies anything that would need one (use `--yolo` to opt out).
+1. a short blocklist (`rm -rf /`, `Remove-Item -Recurse C:\`, disk formatting,
+   fork bombs, force-push to main) is denied in every mode;
+2. `plan` mode is read-only, `bypassPermissions` (`--yolo`) allows everything else;
+3. "Always" answers are remembered for the rest of the session;
+4. reads and searches are allowed; writes ask (or are allowed inside the
+   workspace in `acceptEdits`); shell commands ask unless they start with a
+   read-only prefix such as `git status`;
+5. otherwise the REPL or web page asks you. A headless run (`-p`) with nobody
+   to ask denies the call.
 
-This is approval-gating, **not** an OS sandbox. Writes are snapshotted before
-mutation so `/undo` can roll a turn back.
+This is approval-gating, not a sandbox: an allowed command runs with your
+user's rights. Credential-looking environment variables are stripped before a
+command runs, and files are copied before they are changed so `/undo` works.
 
-## Architecture
+## How it is put together
 
 ```
 src/
-  api.js          DeepSeek / OpenAI-compatible streaming client (tool-call assembly, retries)
-  engine.js       the agent loop — assemble → stream → dispatch tools → loop → persist
-  permissions.js  composable allow/deny pipeline (hard → mode → session → kind → ask)
-  context.js      system-prompt assembly + project memory (CLAUDESEEK.md / CLAUDE.md / AGENTS.md)
-  compact.js      CJK-aware token estimate + model/offline context compaction
-  router.js       zero-cost per-turn model router (auto mode)
-  tools/          read_file write_file edit_file list_dir glob grep bash fetch_url todo task
-  mcp.js          stdio MCP client → tools surface as mcp__<server>__<tool>
-  sessions.js     durable JSON sessions (resume by id/prefix, --last)
+  engine.js       the loop: build prompt → stream → run tool calls → repeat → save
+  api.js          streaming chat-completions client (tool-call assembly, retries)
+  permissions.js  the rule chain above
+  context.js      system prompt + project notes (CLAUDESEEK.md, CLAUDE.md or AGENTS.md)
+  compact.js      token estimate (CJK-aware) and conversation compaction
+  router.js       the `auto` model rule
+  tools/          read_file write_file edit_file list_dir glob grep bash fetch_url todo_write task
+  mcp.js          stdio MCP client; server tools appear as mcp__<server>__<tool>
+  sessions.js     JSON sessions in ~/.claudeseek/sessions
   undo.js         per-turn file snapshots
-  cost.js         live cost + DeepSeek prefix-cache accounting
-  memory.js       agentmemory bridge (single source of truth) + offline outbox
+  cost.js         cost and prefix-cache accounting
+  memory.js       optional bridge to a local agentmemory server (off by default)
   repl.js         terminal UI
-  server.js       127.0.0.1 Web UI server (token auth, NDJSON streaming, approvals)
-public/index.html  the Web UI (zero-build, single file)
+  server.js       web UI server (token auth, NDJSON streaming, approvals)
+public/index.html the web UI, no build step
 ```
 
-Patterns ported from Claude Code: a single streaming agent loop that every
-surface consumes; the layered permission decision pipeline; message-centric
-sub-agents (results return as `<task-notification>` the parent reads as
-context, not RPC); file-state snapshots for undo; and stable per-session system
-prompts for prefix-cache efficiency.
+The REPL, the web server, headless `-p` runs and sub-agents all consume the
+same event stream from `Engine.submit()`, so behaviour stays the same across
+them. To add a tool, export `{ name, kind, description, parameters, execute }`
+from a file in `src/tools/`, register it in `src/tools/index.js`, and add a
+scenario to `scripts/fake-deepseek.mjs` plus a check in `scripts/e2e-core.mjs`.
 
 ## Tests
 
-46 end-to-end checks run fully offline against a mock DeepSeek server — real
-HTTP, real streaming, real tool execution:
-
 ```bash
-npm test            # core + cli + server
-npm run test:core   # engine, tools, permissions, undo, compaction
-npm run test:server # web server: auth, streaming, approval round-trip
+npm test             # all three suites
+npm run test:core    # engine, tools, permissions, undo, compaction, config isolation
+npm run test:cli     # --version, --help, -p, --json, --doctor
+npm run test:server  # web server auth, streaming, browser approval round trip
 ```
 
-## Part of the agent workstation
+The suites start the fake server on a random local port and point `HOME` at
+a temp directory, so they need no key, no network and never touch your real
+`~/.claudeseek`. On my machine they report 35 + 10 + 18 = 63 passing checks.
+GitHub Actions runs them on Ubuntu (Node 18 and 22) and Windows (Node 22).
 
-claudeseek is a first-class member of the local agent family documented in
-`D:\devtools\AGENTS.md`. It shares the four-piece kit: **Skills** (`SKILL.md`
-discovery), **Memory** (agentmemory at `localhost:3111`, tagged
-`agent:claudeseek`, per `AGENT-MEMORY-PROTOCOL.md`), and **Safety** (the
-permission pipeline above). Launch it with `claudeseek.cmd`.
+## Why not an existing tool?
+
+If you want a mature agent, use one: Aider, OpenCode, or Claude Code / Codex
+pointed at a compatible endpoint all do more than this. I wrote claudeseek to
+understand how the pieces of such an agent fit together (the tool loop,
+permission rules, compaction, undo) in code small enough to read in an
+afternoon, and to have a DeepSeek-first tool with a browser UI and no
+dependencies to audit.
+
+My other two agents take different trade-offs:
+[WEIPING_WHALE](https://github.com/appleweiping/WEIPING_WHALE) is a larger
+TypeScript terminal agent for DeepSeek (based on CodeWhale, with side-git
+snapshots, LSP diagnostics and the official MCP SDK as dependencies), and
+[AIDE_DEV](https://github.com/appleweiping/AIDE_DEV) is a Tauri desktop app
+that targets several Chinese model providers. claudeseek is the smallest of
+the three and the only one with a web UI and zero dependencies.
 
 ## License
 
-MIT © appleweiping
+MIT, see [LICENSE](LICENSE).
