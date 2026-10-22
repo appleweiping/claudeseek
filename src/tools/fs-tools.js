@@ -1,6 +1,6 @@
 /**
  * fs-tools.js — read_file / write_file / edit_file / list_dir.
- * Mirrors Claude Code's file tools: line-numbered reads, exact-match edits
+ * Line-numbered reads, exact-match edits
  * with uniqueness enforcement, undo snapshots before every mutation.
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, readdirSync } from "node:fs";

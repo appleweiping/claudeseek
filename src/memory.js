@@ -1,13 +1,11 @@
 /**
- * memory.js — agentmemory bridge (the workstation's single source of truth,
- * http://localhost:3111) with an offline outbox fallback.
+ * memory.js — optional bridge to a local agentmemory server
+ * (default http://localhost:3111),
+ * with a local outbox fallback.
  *
- * Protocol compliance (D:\devtools\AGENT-MEMORY-PROTOCOL.md):
- *  - every record carries concepts including the identity tag `agent:claudeseek`
- *  - canonical lowercase-hyphen `project` name, `_global` when none
- *  - typed records (fact|bug|architecture|pattern|preference|workflow)
- *  - no per-iteration logs: claudeseek only saves on explicit /remember or
- *    meaningful session close.
+ * Off by default. Turn it on with `"memory": { "enabled": true }` in
+ * ~/.claudeseek/config.json. Records are tagged `agent:claudeseek` and are
+ * only written on an explicit /remember.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -18,7 +16,7 @@ const IDENTITY = "agent:claudeseek";
 export class MemoryBridge {
   constructor(config) {
     this.base = (process.env.AGENTMEMORY_URL || config?.memory?.agentmemory_url || "http://localhost:3111").replace(/\/+$/, "");
-    this.enabled = config?.memory?.enabled !== false && !truthy(process.env.CLAUDESEEK_DISABLE_AGENTMEMORY);
+    this.enabled = config?.memory?.enabled === true && !truthy(process.env.CLAUDESEEK_DISABLE_AGENTMEMORY);
   }
 
   headers() {

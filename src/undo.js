@@ -1,6 +1,6 @@
 /**
- * undo.js — per-turn file snapshots (lightweight take on Claude Code's file
- * history). Before any write/edit the original is copied to
+ * undo.js — per-turn file snapshots (a light version of the file
+ * history other coding agents keep). Before any write/edit the original is copied to
  * ~/.claudeseek/undo/<session>/<turn>/; /undo restores the latest turn.
  */
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, rmSync, unlinkSync } from "node:fs";

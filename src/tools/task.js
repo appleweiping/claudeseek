@@ -1,5 +1,5 @@
 /**
- * task.js — sub-agent tool (Claude Code's AgentTool, message-centric).
+ * task.js — sub-agent tool (the result comes back to the parent as a message).
  * Spawns a bounded in-process agent with a restricted toolset; its final text
  * returns as the tool result wrapped in <task-notification> so the parent
  * model reads it as structured context, not RPC.

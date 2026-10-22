@@ -1,6 +1,5 @@
 /**
- * engine.js — the claudeseek agent loop (a faithful DeepSeek port of Claude
- * Code's QueryEngine discipline):
+ * engine.js — the claudeseek agent loop:
  *
  *   submit(user) → assemble context → stream model → dispatch tool_calls
  *   through the permission pipeline → append tool results → loop until the

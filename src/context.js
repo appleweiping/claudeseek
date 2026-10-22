@@ -1,5 +1,5 @@
 /**
- * context.js — system prompt assembly (Claude Code's queryContext pattern).
+ * context.js — system prompt assembly.
  * Identity + environment + project memory files + skills inventory, assembled
  * fresh per session and kept stable within it (DeepSeek prefix-cache friendly).
  */
@@ -16,7 +16,7 @@ export function buildSystemPrompt({ cwd, model, permissionMode, skills = [], ext
 
   parts.push(`You are ${NAME} v${VERSION}, an AI coding agent running in the user's ${
     process.platform === "win32" ? "Windows" : process.platform
-  } terminal/browser. You fuse Claude Code's agent discipline with the DeepSeek V4 engine.
+  } terminal or browser.
 
 # Core conduct
 - Be direct and concise. Lead with the outcome. No filler, no flattery.

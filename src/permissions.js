@@ -1,5 +1,5 @@
 /**
- * permissions.js — composable permission pipeline (Claude Code pattern).
+ * permissions.js — composable permission pipeline.
  *
  * Decision order, first non-null wins:
  *   1. hard rules        (blocked commands → deny, always)
@@ -9,7 +9,7 @@
  *                         shell safe-prefix → allow, else ask; net → allow)
  *   5. asker callback    (interactive UI / server approval / headless policy)
  *
- * Modes mirror Claude Code: default | acceptEdits | bypassPermissions | plan.
+ * Modes (same names Claude Code uses): default | acceptEdits | bypassPermissions | plan.
  */
 import { classifyCommand } from "./tools/shell.js";
 import { resolve, relative, isAbsolute } from "node:path";

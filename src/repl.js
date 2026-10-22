@@ -13,7 +13,7 @@ import { McpManager } from "./mcp.js";
 import { loadSkill } from "./skills.js";
 import { formatTokens } from "./cost.js";
 import { compactMessages } from "./compact.js";
-import { VERSION } from "./version.js";
+import { VERSION, TAGLINE } from "./version.js";
 
 const HELP = `
 ${c.bold("Slash commands")}
@@ -115,6 +115,7 @@ export async function startRepl({ config, cwd, session = null, modelPref = null 
     }
 
     let inReasoning = false;
+    let afterTool = false; // put a blank line between tool output and the answer
     let spinnerTimer = startSpinner();
     const stopSpinner = () => {
       if (spinnerTimer) {
@@ -145,7 +146,10 @@ export async function startRepl({ config, cwd, session = null, modelPref = null 
             if (inReasoning) {
               process.stdout.write("\n\n");
               inReasoning = false;
+            } else if (afterTool) {
+              process.stdout.write("\n");
             }
+            afterTool = false;
             process.stdout.write(ev.text);
             break;
           case "tool-start":
@@ -160,6 +164,7 @@ export async function startRepl({ config, cwd, session = null, modelPref = null 
             const first = String(ev.output || "").split("\n")[0].slice(0, 160);
             const mark = ev.denied ? c.yellow("denied") : ev.ok ? c.green("ok") : c.red("failed");
             process.stdout.write(`  ${c.dim(glyph.corner)} ${mark} ${c.dim(`${first} · ${ev.ms}ms`)}\n`);
+            afterTool = true;
             spinnerTimer = startSpinner();
             break;
           }
@@ -308,7 +313,11 @@ export async function startRepl({ config, cwd, session = null, modelPref = null 
           return;
         }
         const r = await memory.remember({ content: arg, type: "fact", project: "claudeseek", concepts: ["manual-note"] });
-        process.stdout.write(r.saved ? c.green("saved to agentmemory.\n") : c.yellow(`service down — queued to outbox: ${r.path}\n`));
+        process.stdout.write(
+          r.saved
+            ? c.green("saved to agentmemory.\n")
+            : c.yellow(`${memory.enabled ? "agentmemory unreachable" : "agentmemory is off"} — saved to outbox: ${r.path}\n`)
+        );
         return;
       }
       case "recall": {
@@ -348,7 +357,7 @@ function banner(engine, config, mcp) {
   const lines = [
     "",
     `  ${wordmark()} ${c.dim("v" + VERSION)}`,
-    `  ${c.dim("Claude-grade agent architecture · DeepSeek V4 engine")}`,
+    `  ${c.dim(TAGLINE)}`,
     "",
     `  ${c.dim("cwd")}    ${engine.cwd}`,
     `  ${c.dim("model")}  ${engine.modelPref} ${c.dim(`· thinking ${config.llm.thinking} · mode ${engine.permissions.mode}`)}`,

@@ -1,8 +1,7 @@
 /**
  * theme.js — ANSI palette for the claudeseek CLI.
  *
- * Fusion identity: Claude's terracotta/cream warmth × DeepSeek's deep-sea blue.
- * Truecolor when supported, graceful 16-color fallback, NO_COLOR respected.
+ * Truecolor when supported, 16-color fallback, NO_COLOR respected.
  */
 
 const noColor =
@@ -26,10 +25,9 @@ function wrap([open, close]) {
   return (s) => `${open}${s}${close}`;
 }
 
-// Claude terracotta #D97757 · DeepSeek blue #4D6BFE · success green · soft gray
 export const c = {
-  orange: wrap(rgb(217, 119, 87, "\x1b[33m")), // Claude terracotta
-  blue: wrap(rgb(77, 107, 254, "\x1b[34m")), // DeepSeek blue
+  orange: wrap(rgb(230, 150, 70, "\x1b[33m")), // accent: prompt, spinner
+  blue: wrap(rgb(77, 107, 254, "\x1b[34m")), // tool calls, wordmark
   green: wrap(rgb(94, 182, 125, "\x1b[32m")),
   red: wrap(rgb(224, 90, 90, "\x1b[31m")),
   yellow: wrap(rgb(222, 184, 96, "\x1b[33m")),
@@ -40,9 +38,9 @@ export const c = {
   cream: wrap(rgb(240, 238, 230, "\x1b[37m")),
 };
 
-/** The two-tone wordmark: "claude" in terracotta, "seek" in deep blue. */
+/** The program name as printed in banners. */
 export function wordmark() {
-  return c.bold(c.orange("claude") + c.blue("seek"));
+  return c.bold(c.blue("claudeseek"));
 }
 
 /** Status glyphs shared across the REPL. */

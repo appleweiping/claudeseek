@@ -1,7 +1,7 @@
 /**
  * api.js — DeepSeek chat-completions client (OpenAI-compatible, streaming).
  *
- * Design notes (ported from the Claude Code QueryEngine discipline):
+ * Design notes:
  *  - One streaming code path; non-stream is just stream + join.
  *  - Tool-call deltas are assembled by index (DeepSeek splits name/arguments
  *    across chunks exactly like OpenAI).
@@ -32,7 +32,7 @@ export class DeepSeekClient {
     this.thinking = opts.thinking ?? "auto"; // auto|enabled|disabled
     this.reasoningEffort = opts.reasoning_effort ?? "high"; // high|max
     // provider shapes the request body: "deepseek" sends V4 thinking params;
-    // "openai" speaks plain OpenAI chat-completions (relays, GPT, Claude proxies).
+    // "openai" speaks plain OpenAI chat-completions (relays and other compatible backends).
     this.provider = opts.provider === "openai" ? "openai" : "deepseek";
     this.extraHeaders = opts.default_headers || {};
   }

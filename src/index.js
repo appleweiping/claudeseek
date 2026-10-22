@@ -121,11 +121,15 @@ async function doctor(config, cwd, asJson) {
   }
   const memory = new MemoryBridge(config);
   const h = await memory.health();
-  checks.push({
-    level: h.ok ? "ok" : "warn",
-    code: "memory.agentmemory",
-    message: h.ok ? `agentmemory reachable at ${memory.base}` : `agentmemory not reachable (${h.reason || h.status}) — outbox fallback active`,
-  });
+  checks.push(
+    !memory.enabled
+      ? { level: "ok", code: "memory.agentmemory", message: "agentmemory integration off (optional)" }
+      : {
+          level: h.ok ? "ok" : "warn",
+          code: "memory.agentmemory",
+          message: h.ok ? `agentmemory reachable at ${memory.base}` : `agentmemory not reachable (${h.reason || h.status}) — notes go to the outbox`,
+        }
+  );
   checks.push({ level: "ok", code: "llm.provider", message: `provider=${config.llm.provider} · model=${config.llm.model} · ${new URL(config.llm.base_url).host}` });
   checks.push({ level: "ok", code: "runtime.node", message: `node ${process.version} on ${process.platform}` });
   const mcpCount = Object.keys(config.mcp_servers || {}).length;

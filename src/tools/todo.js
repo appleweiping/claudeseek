@@ -1,5 +1,5 @@
 /**
- * todo.js — in-session structured task list (Claude Code's TodoWrite pattern).
+ * todo.js — in-session structured task list.
  * The model replaces the whole list each call; the UI renders it live.
  */
 

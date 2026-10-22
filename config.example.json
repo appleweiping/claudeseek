@@ -15,7 +15,7 @@
     "compact_threshold": 0.75
   },
   "server": { "port": 3618, "open": false },
-  "memory": { "agentmemory_url": "http://localhost:3111", "enabled": true },
+  "memory": { "agentmemory_url": "http://localhost:3111", "enabled": false },
   "providers": {
     "relay": {
       "provider": "openai",
