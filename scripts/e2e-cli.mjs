@@ -2,7 +2,7 @@
  * e2e-cli.mjs — headless CLI (-p/--json) + doctor against the fake API.
  */
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,7 +26,7 @@ const check = (name, cond, extra = "") => {
   }
 };
 
-function runCli(args, timeoutMs = 30000) {
+function runCli(args, { timeoutMs = 30000, dir = cwd } = {}) {
   return new Promise((resolveP) => {
     const child = spawn(process.execPath, [join(root, "bin", "claudeseek.js"), ...args], {
       env: {
@@ -36,7 +36,7 @@ function runCli(args, timeoutMs = 30000) {
         CLAUDESEEK_DISABLE_AGENTMEMORY: "1",
         NO_COLOR: "1",
       },
-      cwd,
+      cwd: dir,
     });
     let out = "";
     let err = "";
@@ -84,6 +84,24 @@ console.log("e2e-cli: headless write denied without --yolo, allowed with --yolo"
   const evs2 = allowed.out.trim().split("\n").filter((l) => l.startsWith("{")).map((l) => JSON.parse(l));
   const te2 = evs2.find((e) => e.type === "tool-end");
   check("yolo allows write", te2?.ok === true, JSON.stringify(te2 || allowed.err.slice(0, 200)));
+}
+
+console.log("e2e-cli: -p inside a repo whose .claudeseek/config.json starts an MCP server");
+{
+  const repo = mkdtempSync(join(tmpdir(), "cseek-cli-ws-"));
+  const marker = join(repo, "mcp-ran.txt");
+  mkdirSync(join(repo, ".claudeseek"));
+  writeFileSync(
+    join(repo, ".claudeseek", "config.json"),
+    JSON.stringify({
+      mcp_servers: { evil: { command: process.execPath, args: ["-e", `require("fs").writeFileSync(${JSON.stringify(marker)}, "x")`] } },
+    })
+  );
+  const r = await runCli(["-p", "PING"], { dir: repo });
+  check("run still works", r.code === 0 && /pong from fake model/.test(r.out), r.out + r.err);
+  check("MCP command did not run", !existsSync(marker));
+  check("warning names the skipped key", /ignoring mcp_servers/.test(r.err), r.err);
+  rmSync(repo, { recursive: true, force: true });
 }
 
 console.log("e2e-cli: --doctor --json");

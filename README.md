@@ -85,9 +85,18 @@ npm link             # optional: puts `claudeseek` and `cseek` on your PATH
 claudeseek looks for a key in this order and nowhere else:
 
 1. the `DEEPSEEK_API_KEY` environment variable (or whatever `llm.api_key_env` names);
-2. `llm.api_key` in `./.claudeseek/config.json` or `~/.claudeseek/config.json`.
+2. `llm.api_key` in `~/.claudeseek/config.json`.
 
 See `config.example.json` for every option.
+
+A project can also carry its own `.claudeseek/config.json`. Because that file
+arrives with whatever repository you clone, claudeseek only takes the model
+settings from it (`llm.model`, `thinking`, `reasoning_effort`, `temperature`,
+`max_tokens`, `agent.compact_threshold`, and `agent.permission_mode` when it is
+`default` or `plan`). Endpoints, keys, providers, MCP servers and the memory
+URL in it are skipped with a warning, so a repo cannot start a program or send
+your key somewhere else. To use the whole file for a folder you trust, list
+that folder under `trusted_workspaces` in `~/.claudeseek/config.json`.
 
 ```bash
 export DEEPSEEK_API_KEY=sk-...

@@ -4,7 +4,7 @@
  * Resolution order (first hit wins per key, later layers fill gaps):
  *   1. CLI flags (applied by the caller)
  *   2. Environment variables (DEEPSEEK_API_KEY, CLAUDESEEK_MODEL, ...)
- *   3. ./.claudeseek/config.json   (workspace)
+ *   3. ./.claudeseek/config.json   (workspace; only WORKSPACE_KEYS, see below)
  *   4. ~/.claudeseek/config.json   (user)
  *   5. built-in defaults
  *
@@ -13,7 +13,7 @@
  */
 import { existsSync, readFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 // Prices are USD per 1M tokens, the peak-hour rates from
 // https://api-docs.deepseek.com/quick_start/pricing as checked on 2026-10-22.
@@ -75,7 +75,21 @@ export const DEFAULTS = {
   memory: { agentmemory_url: "http://localhost:3111", enabled: false }, // optional agentmemory server
   mcp_servers: {},
   pricing: {},
+  trusted_workspaces: [], // folders whose .claudeseek/config.json is read in full
 };
+
+// A cloned repository can ship its own .claudeseek/config.json, and claudeseek
+// reads it as soon as it starts in that folder. Only these keys are taken from
+// it: they change how the model answers, not which programs claudeseek starts
+// or where it sends your API key. Endpoints, keys, providers, MCP servers and
+// the memory URL come from ~/.claudeseek/config.json, unless that file lists
+// the folder under trusted_workspaces.
+export const WORKSPACE_KEYS = {
+  llm: ["model", "thinking", "reasoning_effort", "temperature", "max_tokens"],
+  agent: ["compact_threshold", "permission_mode"],
+};
+// A workspace may make the permission mode stricter, never looser.
+const WORKSPACE_MODES = ["default", "plan"];
 
 export function userDir() {
   return join(homedir(), ".claudeseek");
@@ -112,13 +126,33 @@ export function loadConfig(cwd = process.cwd()) {
   const config = structuredClone(DEFAULTS);
   const sources = [];
 
-  // 4) user config, 3) workspace config
-  for (const p of [join(userDir(), "config.json"), join(cwd, ".claudeseek", "config.json")]) {
-    const j = readJsonIf(p);
-    if (j) {
-      deepMerge(config, j);
-      sources.push(p);
+  // 4) user config
+  const userPath = join(userDir(), "config.json");
+  const user = readJsonIf(userPath);
+  if (user) {
+    deepMerge(config, user);
+    sources.push(userPath);
+  }
+
+  // 3) workspace config: the safe subset, or all of it if the user trusts the folder
+  const wsPath = join(cwd, ".claudeseek", "config.json");
+  const ws = samePath(wsPath, userPath) ? null : readJsonIf(wsPath);
+  config._workspace_ignored = [];
+  if (ws) {
+    if (isTrustedWorkspace(config, cwd)) {
+      deepMerge(config, ws);
+    } else {
+      const { kept, ignored } = pickWorkspaceKeys(ws);
+      deepMerge(config, kept);
+      config._workspace_ignored = ignored;
+      if (ignored.length) {
+        process.stderr.write(
+          `claudeseek: ignoring ${ignored.join(", ")} in ${wsPath}. ` +
+            `Add this folder to trusted_workspaces in ~/.claudeseek/config.json to use them.\n`
+        );
+      }
     }
+    sources.push(wsPath);
   }
 
   // 2) environment
@@ -145,6 +179,42 @@ export function loadConfig(cwd = process.cwd()) {
   config.llm.base_url = String(config.llm.base_url || "").replace(/\/+$/, "");
   config._sources = sources;
   return config;
+}
+
+/** Split a workspace config into the keys we take and the ones we skip. */
+export function pickWorkspaceKeys(json) {
+  const kept = {};
+  const ignored = [];
+  for (const [section, value] of Object.entries(json || {})) {
+    if (section === "//") continue; // comment key, as in config.example.json
+    const allowed = WORKSPACE_KEYS[section];
+    if (!allowed || !value || typeof value !== "object" || Array.isArray(value)) {
+      ignored.push(section);
+      continue;
+    }
+    for (const [key, v] of Object.entries(value)) {
+      if (key === "//") continue;
+      const ok =
+        allowed.includes(key) && !(section === "agent" && key === "permission_mode" && !WORKSPACE_MODES.includes(v));
+      if (ok) (kept[section] ||= {})[key] = v;
+      else ignored.push(`${section}.${key}`);
+    }
+  }
+  return { kept, ignored };
+}
+
+function normPath(p) {
+  const abs = resolve(String(p).replace(/^~(?=$|[\\/])/, homedir()));
+  return process.platform === "win32" ? abs.toLowerCase() : abs;
+}
+
+function samePath(a, b) {
+  return normPath(a) === normPath(b);
+}
+
+function isTrustedWorkspace(config, cwd) {
+  const list = Array.isArray(config.trusted_workspaces) ? config.trusted_workspaces : [];
+  return list.some((p) => typeof p === "string" && p && samePath(p, cwd));
 }
 
 /**
@@ -231,5 +301,8 @@ export function validateConfig(config) {
     "agent.permission_mode",
     `permission_mode=${mode}`
   );
+  if (config._workspace_ignored?.length) {
+    add("warn", "workspace.config", `ignored ${config._workspace_ignored.join(", ")} (folder not in trusted_workspaces)`);
+  }
   return checks;
 }
