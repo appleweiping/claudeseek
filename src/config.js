@@ -15,14 +15,23 @@ import { existsSync, readFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+// Prices are USD per 1M tokens, the peak-hour rates from
+// https://api-docs.deepseek.com/quick_start/pricing as checked on 2026-10-22.
+// Off-peak rates are half of these, so the cost footer is an upper bound.
+// DeepSeek now calls the Flash model `deepseek-flash`; `deepseek-v4-flash`
+// is still accepted and billed at the same price. Override with `pricing` in
+// ~/.claudeseek/config.json when the page changes.
+// context_window is how much claudeseek lets a conversation grow before it
+// compacts, not the API limit (the page lists 1M for both models); compacting
+// early keeps every request, and so its cost, smaller.
 export const MODELS = {
   "deepseek-v4-pro": {
-    pricing: { cache_hit_usd: 0.07, cache_miss_usd: 0.56, output_usd: 1.68 },
+    pricing: { cache_hit_usd: 0.044, cache_miss_usd: 1.32, output_usd: 3.96 },
     context_window: 128000,
     label: "V4 Pro — highest quality; architecture, debugging, hard coding",
   },
   "deepseek-v4-flash": {
-    pricing: { cache_hit_usd: 0.014, cache_miss_usd: 0.14, output_usd: 0.28 },
+    pricing: { cache_hit_usd: 0.006, cache_miss_usd: 0.3, output_usd: 1.2 },
     context_window: 128000,
     label: "V4 Flash — fast + economical; great default for agent work",
   },
@@ -190,10 +199,8 @@ export function resolveModelName(input) {
 }
 
 export function pricingFor(config, model) {
-  return (
-    config.pricing?.[model] ||
-    MODELS[model]?.pricing || { cache_hit_usd: 0.07, cache_miss_usd: 0.56, output_usd: 1.68 }
-  );
+  // Unknown model names are priced like Pro so the estimate errs high.
+  return config.pricing?.[model] || MODELS[model]?.pricing || MODELS["deepseek-v4-pro"].pricing;
 }
 
 export function contextWindowFor(model) {

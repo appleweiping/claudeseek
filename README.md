@@ -25,7 +25,7 @@ $ npm run demo
   claudeseek v1.0.0
   a local coding agent for the DeepSeek API
 
-  cwd    D:\Temp\cseek-demo-VVVZK4
+  cwd    D:\Temp\cseek-demo-TrBVxT
   model  deepseek-v4-flash · thinking auto · mode default
   key    env:DEEPSEEK_API_KEY
 
@@ -35,33 +35,33 @@ $ npm run demo
 ✻ thinking… Read the file first, then fix it.
 
 ⏺ read_file(greet.js)
-  ⎿ ok      1	console.log("Helo, world!"); · 9ms
+  ⎿ ok      1	console.log("Helo, world!"); · 3ms
 
 ⏺ edit_file(greet.js (replace Helo…))
 
 ◆ approval needed edit_file (write)
   greet.js (replace Helo…)
   allow? [y]es / [a]lways / [n]o y
-  ⎿ ok Edited D:\Temp\cseek-demo-VVVZK4\greet.js (1 replacement) · 37ms
+  ⎿ ok Edited D:\Temp\cseek-demo-TrBVxT\greet.js (1 replacement) · 24ms
 
 ⏺ bash(node greet.js)
 
 ◆ approval needed bash (shell)
   node greet.js
   allow? [y]es / [a]lways / [n]o y
-  ⎿ ok Hello, world! · 3622ms
+  ⎿ ok Hello, world! · 2220ms
 
 Fixed the typo in greet.js (`Helo` → `Hello`) and ran it: it now prints `Hello, world!`.
-$0.0003 · 3.7k tok · cache 50% · default · deepseek-v4-flash
+$0.0007 · 3.7k tok · cache 50% · default · deepseek-v4-flash
 
 ❯ /quit
 
 [demo] greet.js now contains: console.log("Hello, world!");
 ```
 
-(The 3.6 s on `bash` is PowerShell starting up on Windows; on Linux it is a few
-milliseconds. The cost line is computed from the token counts the fake server
-reports.)
+(The 2.2 s on `bash` is PowerShell starting up on Windows; on Linux it is
+tens of milliseconds. The cost line is computed from the token counts the fake
+server reports, at the peak-hour prices in `src/config.js`.)
 
 The same turn in the web UI (`claudeseek --serve`), captured with headless
 Chromium against the same fake server:
