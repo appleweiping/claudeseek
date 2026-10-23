@@ -38,10 +38,14 @@ export async function main(argv = process.argv.slice(2)) {
 
   if (args.doctor) return await doctor(config, cwd, args.json);
 
-  if (!config.llm.api_key && !args.doctor) {
+  if (!config.llm.api_key) {
     process.stderr.write(
-      c.red(`No DeepSeek API key found. Set ${config.llm.api_key_env || "DEEPSEEK_API_KEY"} (or llm.api_key in ~/.claudeseek/config.json), then retry.\n`)
+      c.red(`No API key found. Set ${config.llm.api_key_env || "DEEPSEEK_API_KEY"} (or llm.api_key in ~/.claudeseek/config.json), then retry.\n`)
     );
+    return 1;
+  }
+  if (!config.llm.model) {
+    process.stderr.write(c.red(`No model set for the ${config.llm.provider} endpoint. Pass -m <model> or set CLAUDESEEK_RELAY_MODEL.\n`));
     return 1;
   }
 
@@ -130,7 +134,7 @@ async function doctor(config, cwd, asJson) {
           message: h.ok ? `agentmemory reachable at ${memory.base}` : `agentmemory not reachable (${h.reason || h.status}) — notes go to the outbox`,
         }
   );
-  checks.push({ level: "ok", code: "llm.provider", message: `provider=${config.llm.provider} · model=${config.llm.model} · ${new URL(config.llm.base_url).host}` });
+  checks.push({ level: "ok", code: "llm.provider", message: `provider=${config.llm.provider} · model=${config.llm.model || "(none)"}` });
   checks.push({ level: "ok", code: "runtime.node", message: `node ${process.version} on ${process.platform}` });
   const mcpCount = Object.keys(config.mcp_servers || {}).length;
   checks.push({ level: "ok", code: "mcp.configured", message: `${mcpCount} MCP server(s) configured` });
@@ -233,8 +237,9 @@ function printHelp() {
     --cwd <dir>         workspace directory
     --json              JSONL events (with -p) / JSON (with --doctor)
 
-  ${c.bold("provider")} default DeepSeek (国产 V4). Switch with CLAUDESEEK_PROVIDER=relay
-            to use an OpenAI-compatible endpoint (OPENAI_BASE_URL + OPENAI_API_KEY).
+  ${c.bold("provider")} DeepSeek by default. For another OpenAI-compatible endpoint, set
+           CLAUDESEEK_PROVIDER=relay, OPENAI_BASE_URL and OPENAI_API_KEY,
+           and pick a model with -m.
   ${c.bold("config")}   ~/.claudeseek/config.json · env DEEPSEEK_API_KEY
   ${c.bold("docs")}     https://github.com/appleweiping/claudeseek
 `);

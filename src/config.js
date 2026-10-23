@@ -164,7 +164,6 @@ export function loadConfig(cwd = process.cwd()) {
     config.llm.api_key_source = "config";
   }
   if (process.env.DEEPSEEK_BASE_URL) config.llm.base_url = process.env.DEEPSEEK_BASE_URL;
-  if (process.env.CLAUDESEEK_MODEL) applyModelAlias(config, process.env.CLAUDESEEK_MODEL);
   if (process.env.CLAUDESEEK_PERMISSION_MODE) config.agent.permission_mode = process.env.CLAUDESEEK_PERMISSION_MODE;
 
   // Provider selection. `CLAUDESEEK_PROVIDER=<name>` activates a named provider
@@ -175,6 +174,8 @@ export function loadConfig(cwd = process.cwd()) {
     config.llm.api_key = process.env.OPENAI_API_KEY;
     config.llm.api_key_source = "env:OPENAI_API_KEY";
   }
+  // After the provider, so it can name the model a relay should use.
+  if (process.env.CLAUDESEEK_MODEL) applyModelAlias(config, process.env.CLAUDESEEK_MODEL);
 
   config.llm.base_url = String(config.llm.base_url || "").replace(/\/+$/, "");
   config._sources = sources;
@@ -227,27 +228,33 @@ export function activateProvider(config, name) {
   const key = String(name || "").trim().toLowerCase();
   const builtin = {
     deepseek: { provider: "deepseek", base_url: "https://api.deepseek.com", api_key_env: "DEEPSEEK_API_KEY", model: "deepseek-v4-flash" },
-    // Generic OpenAI-compatible relay: reads endpoint/key from env so no secret lives in code.
+    // Any OpenAI-compatible endpoint; endpoint, key and model come from the
+    // environment. There is no default model because every relay names its
+    // models differently: use -m, CLAUDESEEK_MODEL or CLAUDESEEK_RELAY_MODEL.
     relay: {
       provider: "openai",
       base_url: process.env.CLAUDESEEK_RELAY_BASE_URL || process.env.OPENAI_BASE_URL || "",
       api_key_env: "OPENAI_API_KEY",
-      model: process.env.CLAUDESEEK_RELAY_MODEL || "gpt-5.5",
-      default_headers: { "User-Agent": "curl/8.7.1" },
+      model: process.env.CLAUDESEEK_RELAY_MODEL || "",
     },
   };
   const p = (config.providers && config.providers[key]) || builtin[key];
   if (!p) return config;
   config.llm.provider = p.provider || config.llm.provider;
   if (p.base_url) config.llm.base_url = p.base_url;
+  // Don't send a DeepSeek model name to some other endpoint: without a model
+  // of its own, a non-DeepSeek provider leaves it empty and the CLI asks for one.
   if (p.model) config.llm.model = p.model;
-  if (p.default_headers) config.llm.default_headers = p.default_headers;
+  else if (config.llm.provider !== "deepseek") config.llm.model = "";
+  config.llm.default_headers = p.default_headers || {};
   if (p.api_key) {
     config.llm.api_key = p.api_key;
     config.llm.api_key_source = `provider:${key}`;
-  } else if (p.api_key_env && process.env[p.api_key_env]) {
-    config.llm.api_key = process.env[p.api_key_env];
-    config.llm.api_key_source = `env:${p.api_key_env}`;
+  } else if (p.api_key_env) {
+    // Never fall back to the DeepSeek key for a provider that names its own.
+    config.llm.api_key_env = p.api_key_env;
+    config.llm.api_key = process.env[p.api_key_env] || "";
+    config.llm.api_key_source = config.llm.api_key ? `env:${p.api_key_env}` : "missing";
   }
   return config;
 }
@@ -294,6 +301,11 @@ export function validateConfig(config) {
     /* keep invalid-url */
   }
   add(host !== "invalid-url" ? "ok" : "error", "llm.base_url", `endpoint host: ${host}`);
+  add(
+    config.llm.model ? "ok" : "error",
+    "llm.model",
+    config.llm.model ? `model=${config.llm.model}` : "No model set. Pass -m <model> or set CLAUDESEEK_RELAY_MODEL"
+  );
   add(config.agent.max_iterations >= 1 ? "ok" : "error", "agent.max_iterations", `max_iterations=${config.agent.max_iterations}`);
   const mode = config.agent.permission_mode;
   add(

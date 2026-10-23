@@ -146,9 +146,14 @@ OPENAI_BASE_URL=https://example.com/v1 OPENAI_API_KEY=... \
   CLAUDESEEK_PROVIDER=relay claudeseek -m some-model -p "..."
 ```
 
+`relay` has no default model, because every endpoint names its models
+differently: pass `-m` or set `CLAUDESEEK_RELAY_MODEL`. It reads its key from
+`OPENAI_API_KEY` only and never falls back to your DeepSeek key.
+
 With `provider: "deepseek"` the client sends DeepSeek's thinking parameters;
 with `provider: "openai"` it sends plain chat-completions requests. Named
-providers can be defined under `providers` in the config file.
+providers can be defined under `providers` in the config file, with an
+optional `default_headers` object for endpoints that need extra headers.
 
 ## Permissions
 

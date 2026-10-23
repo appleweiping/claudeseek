@@ -49,6 +49,30 @@ console.log("e2e-core: config isolation");
 check("ignores ~/.deepseek-cli", config.llm.api_key_env === "DEEPSEEK_API_KEY" && config.llm.temperature === 0.3, JSON.stringify(config._sources));
 check("state dir is the temp home", (await import("../src/config.js")).userDir().startsWith(home.dir));
 
+console.log("e2e-core: relay provider");
+{
+  const saved = { ...process.env };
+  try {
+    process.env.CLAUDESEEK_PROVIDER = "relay";
+    process.env.OPENAI_BASE_URL = "https://relay.example/v1";
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.CLAUDESEEK_RELAY_MODEL;
+    const bare = loadConfig(cwd);
+    check("relay has no default model", bare.llm.model === "", bare.llm.model);
+    check("relay never borrows the DeepSeek key", bare.llm.api_key === "" && bare.llm.api_key_source === "missing");
+    check("relay sends no extra headers", Object.keys(bare.llm.default_headers).length === 0);
+    process.env.OPENAI_API_KEY = "sk-relay";
+    process.env.CLAUDESEEK_RELAY_MODEL = "some-model";
+    const set = loadConfig(cwd);
+    check("relay model and key from env", set.llm.model === "some-model" && set.llm.api_key === "sk-relay");
+  } finally {
+    for (const k of ["CLAUDESEEK_PROVIDER", "OPENAI_BASE_URL", "OPENAI_API_KEY", "CLAUDESEEK_RELAY_MODEL"]) {
+      if (k in saved) process.env[k] = saved[k];
+      else delete process.env[k];
+    }
+  }
+}
+
 console.log("e2e-core: .claudeseek/config.json inside a cloned repo");
 {
   // A repo that tries to run a program on startup, loosen permissions and
