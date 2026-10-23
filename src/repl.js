@@ -258,7 +258,7 @@ export async function startRepl({ config, cwd, session = null, modelPref = null 
       }
       case "sessions": {
         for (const s of listSessions(15)) {
-          process.stdout.write(`  ${c.bold(s.id)} ${c.dim(`${s.messages} msgs · $${s.costUsd.toFixed(3)} · ${s.updated?.slice(0, 16)}`)}\n    ${s.title}\n`);
+          process.stdout.write(`  ${c.bold(s.id)} ${c.dim(`${s.messages} msgs · $${s.costUsd.toFixed(4)} · ${s.updated?.slice(0, 16)}`)}\n    ${s.title}\n`);
         }
         return;
       }

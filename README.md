@@ -216,7 +216,7 @@ npm run test:server  # web server auth, streaming, browser approval round trip
 
 The suites start the fake server on a random local port and point `HOME` at
 a temp directory, so they need no key, no network and never touch your real
-`~/.claudeseek`. On my machine they report 35 + 10 + 18 = 63 passing checks.
+`~/.claudeseek`. On my machine they report 52 + 13 + 18 = 83 passing checks.
 GitHub Actions runs them on Ubuntu (Node 18 and 22) and Windows (Node 22).
 
 ## Why not an existing tool?

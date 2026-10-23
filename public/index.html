@@ -398,7 +398,7 @@ async function refreshSessions(){
     for(const s of sessions){
       const d = document.createElement("div");
       d.className = "sess"+(s.id===st.session.id?" active":"");
-      d.innerHTML = `<div class="t">${esc(s.title||"(untitled)")}</div><div class="m">${s.messages} msgs · $${(s.costUsd||0).toFixed(3)}</div>`;
+      d.innerHTML = `<div class="t">${esc(s.title||"(untitled)")}</div><div class="m">${s.messages} msgs · $${(s.costUsd||0).toFixed(4)}</div>`;
       d.onclick = async ()=>{
         if(busy) return toast("wait for the current turn");
         try{ await api("/api/session/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:s.id})});

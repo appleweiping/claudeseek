@@ -1,7 +1,8 @@
 /**
  * search.js — glob + grep in pure JS (no ripgrep dependency).
- * Bounded walker: skips VCS/dependency/cache dirs, binary files, and caps
- * results so a careless pattern can't flood the context window.
+ * The walker skips VCS/dependency/cache dirs and binary files, and stops after
+ * a fixed number of files and results so a careless pattern can't flood the
+ * context window.
  */
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
