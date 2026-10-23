@@ -6,7 +6,9 @@
  *   2. mode rules        (plan → read-only; bypassPermissions → allow)
  *   3. session rules     ("always allow" grants accumulated this session)
  *   4. kind defaults     (read/meta → allow; write → ask unless acceptEdits;
- *                         shell safe-prefix → allow, else ask; net → allow)
+ *                         shell safe-prefix → allow, else ask; net → ask, and
+ *                         "always" covers that one host; mcp → ask unless the
+ *                         server is marked trusted in the user's config)
  *   5. asker callback    (interactive UI / server approval / headless policy)
  *
  * Modes (same names Claude Code uses): default | acceptEdits | bypassPermissions | plan.
@@ -38,6 +40,7 @@ export class Permissions {
       return `bash:${word}`;
     }
     if (tool.kind === "write") return `write:*`;
+    if (tool.kind === "net") return `${tool.name}:${hostOf(input.url)}`;
     return `${tool.name}:*`;
   }
 
@@ -60,12 +63,20 @@ export class Permissions {
     }
 
     // 4. kind defaults
-    if (tool.kind === "read" || tool.kind === "meta" || tool.kind === "net") {
+    if (tool.kind === "read" || tool.kind === "meta") {
       return { behavior: "allow", reason: "safe tool" };
     }
-    // Untrusted MCP server tools (arbitrary external code) require approval; an
-    // "always" grant (step 3 above) then auto-allows that tool for the session.
+    // Reads are allowed anywhere the user can read, so a network request is
+    // where file contents could leave the machine (in a query string, say).
+    // Ask, and let "always" cover only the host that was shown.
+    if (tool.kind === "net") {
+      return this.#ask(tool, input, signal);
+    }
+    // MCP tools are external programs. They ask unless the user marked the
+    // server `trusted: true` in ~/.claudeseek/config.json; an "always" grant
+    // (step 3 above) also allows that tool for the rest of the session.
     if (tool.kind === "mcp") {
+      if (tool.trusted === true) return { behavior: "allow", reason: "trusted MCP server" };
       return this.#ask(tool, input, signal);
     }
     if (tool.kind === "write") {
@@ -92,13 +103,31 @@ export class Permissions {
 
   async #ask(tool, input, signal) {
     if (!this.asker) return { behavior: "deny", reason: "no approver available (non-interactive)" };
-    const decision = await this.asker({ tool: tool.name, kind: tool.kind, input, preview: previewOf(tool, input), signal });
+    // alwaysHint tells the UI what an "always" answer will cover, when that is
+    // narrower than the whole tool (fetch_url: one host).
+    const alwaysHint = tool.kind === "net" ? hostOf(input.url) : null;
+    const decision = await this.asker({
+      tool: tool.name,
+      kind: tool.kind,
+      input,
+      preview: previewOf(tool, input),
+      alwaysHint,
+      signal,
+    });
     if (decision === "always") {
       this.sessionAllow.add(this.ruleKey(tool, input));
       return { behavior: "allow", reason: "user approved (always)" };
     }
     if (decision === "allow") return { behavior: "allow", reason: "user approved" };
     return { behavior: "deny", reason: "user denied" };
+  }
+}
+
+function hostOf(url) {
+  try {
+    return new URL(String(url || "")).host.toLowerCase() || "(no host)";
+  } catch {
+    return "(invalid url)";
   }
 }
 

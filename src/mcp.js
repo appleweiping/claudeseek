@@ -169,10 +169,11 @@ export class McpManager {
         out.push({
           name: `mcp__${server.name}__${t.name}`,
           // MCP tools are arbitrary external code (a server can read files, run
-          // shells, hit the network). Gate them behind the approval pipeline by
-          // default (kind "mcp" -> #ask). A server the user explicitly trusts in
-          // config (`trusted: true`) opts its tools back into auto-allow.
-          kind: server.spec.trusted === true ? "net" : "mcp",
+          // shells, hit the network), so they ask before each call. A server the
+          // user marks `trusted: true` in their own config is allowed without
+          // asking (see permissions.js).
+          kind: "mcp",
+          trusted: server.spec.trusted === true,
           description: `[MCP:${server.name}] ${t.description || t.name}`.slice(0, 1000),
           parameters: t.inputSchema || { type: "object", properties: {} },
           execute: async (input) => {

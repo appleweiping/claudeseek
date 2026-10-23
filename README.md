@@ -2,8 +2,8 @@
 
 claudeseek is a small coding agent for the DeepSeek API that runs on your own
 machine: it reads, searches, edits and runs code in a project from a terminal
-REPL or a local web page, and asks before it writes a file or runs a command.
-It is plain Node.js with no npm dependencies.
+REPL or a local web page, and asks before it writes a file, runs a command or
+fetches a URL. It is plain Node.js with no npm dependencies.
 
 > **Not affiliated with Anthropic or DeepSeek.** The name is a nod to the
 > tools that inspired it (Claude Code's agent loop and permission modes, the
@@ -159,9 +159,13 @@ answer wins:
    fork bombs, force-push to main) is denied in every mode;
 2. `plan` mode is read-only, `bypassPermissions` (`--yolo`) allows everything else;
 3. "Always" answers are remembered for the rest of the session;
-4. reads and searches are allowed; writes ask (or are allowed inside the
-   workspace in `acceptEdits`); shell commands ask unless they start with a
-   read-only prefix such as `git status`;
+4. reads and searches are allowed, anywhere your user account can read (not
+   only the workspace); writes ask (or are allowed inside the workspace in
+   `acceptEdits`); shell commands ask unless they start with a read-only
+   prefix such as `git status`; `fetch_url` asks and shows the URL, and
+   "Always" for it covers only that host, since a URL is a way for file
+   contents to leave your machine; MCP tools ask unless the server is marked
+   `"trusted": true` in `~/.claudeseek/config.json`;
 5. otherwise the REPL or web page asks you. A headless run (`-p`) with nobody
    to ask denies the call.
 

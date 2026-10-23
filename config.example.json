@@ -27,7 +27,7 @@
     }
   },
   "mcp_servers": {
-    "//": "Example: an stdio MCP server. Its tools appear as mcp__<name>__<tool>.",
+    "//": "Example: an stdio MCP server. Its tools appear as mcp__<name>__<tool> and ask before each call; add \"trusted\": true to a server you trust to skip that.",
     "example": { "command": "node", "args": ["path/to/mcp-server.js"], "env": {} }
   }
 }

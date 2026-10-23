@@ -258,7 +258,7 @@ function approvalCard(r, ev){
     <div class="cmd">${esc(ev.preview||JSON.stringify(ev.input))}</div>
     <div class="btns">
       <button class="allow">Allow</button>
-      <button class="always">Always allow</button>
+      <button class="always">${ev.alwaysHint ? "Always allow " + esc(ev.alwaysHint) : "Always allow"}</button>
       <button class="deny">Deny</button>
     </div>`;
   for(const [cls,decision] of [["allow","allow"],["always","always"],["deny","deny"]]){

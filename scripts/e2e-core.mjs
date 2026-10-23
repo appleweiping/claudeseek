@@ -175,6 +175,30 @@ console.log("e2e-core: headless (no asker) denies bash, hard-block stands");
   check("npm install needs approval", classifyCommand("npm install left-pad") === "needs-approval");
 }
 
+console.log("e2e-core: fetch_url asks, and 'always' covers one host");
+{
+  const headless = new Engine({ config, cwd, asker: null });
+  const te = byType(await run(headless, "FETCH_TEST"), "tool-end")[0];
+  check("fetch denied without approver", te?.denied === true, JSON.stringify(te));
+
+  const asks = [];
+  const engine = new Engine({ config, cwd, asker: async (req) => (asks.push(req), "always") });
+  const first = byType(await run(engine, "FETCH_TEST"), "tool-end")[0];
+  const second = byType(await run(engine, "FETCH_TEST again"), "tool-end")[0];
+  const host = new URL(url).host;
+  check("fetch asked once, with the host", asks.length === 1 && asks[0].alwaysHint === host, JSON.stringify(asks.map((a) => a.alwaysHint)));
+  check("fetch ran after approval", first?.ok === true && second?.ok === true && /deepseek-v4-flash/.test(second.output), second?.output);
+
+  const { Permissions } = await import("../src/permissions.js");
+  const p = new Permissions({ mode: "default", cwd, asker: null });
+  p.sessionAllow.add(`fetch_url:${host}`);
+  const other = await p.check({ name: "fetch_url", kind: "net" }, { url: "https://example.com/?q=secret" });
+  check("grant for one host does not cover another", other.behavior === "deny", JSON.stringify(other));
+  const untrusted = await p.check({ name: "mcp__s__t", kind: "mcp" }, {});
+  const trusted = await p.check({ name: "mcp__s__t", kind: "mcp", trusted: true }, {});
+  check("MCP tools ask unless the server is trusted", untrusted.behavior === "deny" && trusted.behavior === "allow");
+}
+
 console.log("e2e-core: bash executes when allowed");
 {
   const engine = new Engine({ config, cwd, asker: async () => "always" });

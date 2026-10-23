@@ -4,6 +4,7 @@
  *   PING        → streams text "pong from fake model"
  *   WRITE_TEST  → tool_calls write_file(tmp-e2e/hello.txt) then "file written ok"
  *   BASH_TEST   → tool_calls bash(echo e2e-bash-ok) then "bash done"
+ *   FETCH_TEST  → tool_calls fetch_url(this server's /models) then "fetch done"
  *   SUMMARIZE   → (used by compaction) returns "SUMMARY: …"
  *   "…typo in greet.js…" → read_file, edit_file, bash, then a short answer
  *                (the scripted session behind `npm run demo`)
@@ -99,7 +100,8 @@ export function startFake() {
 
       // After a tool result, settle with text.
       if (lastMsg?.role === "tool") {
-        const label = /hello\.txt/.test(JSON.stringify(messages)) ? "file written ok" : "bash done";
+        const all = JSON.stringify(messages);
+        const label = /hello\.txt/.test(all) ? "file written ok" : /\/models/.test(all) ? "fetch done" : "bash done";
         send(chunk({ role: "assistant", content: label }));
         send(chunk({}, "stop"));
         finishStream();
@@ -134,6 +136,20 @@ export function startFake() {
                 type: "function",
                 function: { name: "bash", arguments: JSON.stringify({ command: `node -e "console.log('e2e-bash-ok')"` }) },
               },
+            ],
+          })
+        );
+        send(chunk({}, "tool_calls"));
+        finishStream();
+        return;
+      }
+
+      if (/FETCH_TEST/.test(text)) {
+        const target = `http://${req.headers.host}/models`;
+        send(
+          chunk({
+            tool_calls: [
+              { index: 0, id: "call_f1", type: "function", function: { name: "fetch_url", arguments: JSON.stringify({ url: target }) } },
             ],
           })
         );

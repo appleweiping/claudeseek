@@ -47,12 +47,13 @@ export async function startRepl({ config, cwd, session = null, modelPref = null 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, historySize: 200 });
   const ask = (q) => new Promise((res) => rl.question(q, res));
 
-  const asker = async ({ tool, kind, input, preview }) => {
+  const asker = async ({ tool, kind, preview, alwaysHint }) => {
     process.stdout.write(
       `\n${c.yellow("◆ approval needed")} ${c.bold(tool)} ${c.dim(`(${kind})`)}\n  ${preview}\n`
     );
+    const always = alwaysHint ? `[a]lways for ${alwaysHint}` : "[a]lways";
     while (true) {
-      const a = (await ask(`  ${c.yellow("allow?")} ${c.dim("[y]es / [a]lways / [n]o")} `)).trim().toLowerCase();
+      const a = (await ask(`  ${c.yellow("allow?")} ${c.dim(`[y]es / ${always} / [n]o`)} `)).trim().toLowerCase();
       if (["y", "yes", ""].includes(a)) return "allow";
       if (["a", "always"].includes(a)) return "always";
       if (["n", "no"].includes(a)) return "deny";

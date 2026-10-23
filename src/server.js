@@ -34,12 +34,12 @@ export async function startServer({ config, cwd, port = 3618, open = false, sess
   const pendingApprovals = new Map(); // id → {resolve, info}
   let firstTurn = !(session?.messages?.length);
 
-  const asker = async ({ tool, kind, input, preview }) => {
+  const asker = async ({ tool, kind, input, preview, alwaysHint }) => {
     if (!activeStream) return "deny";
     const id = randomUUID();
     return await new Promise((resolve) => {
       pendingApprovals.set(id, { resolve, info: { tool, kind, preview } });
-      writeEvent(activeStream.res, { type: "approval-request", id, tool, kind, preview, input: safeInput(input) });
+      writeEvent(activeStream.res, { type: "approval-request", id, tool, kind, preview, alwaysHint, input: safeInput(input) });
     });
   };
 
